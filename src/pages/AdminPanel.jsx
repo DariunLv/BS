@@ -340,7 +340,7 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <TextInput label="Material" placeholder="Ej: Plata 925" value={form.material}
             onChange={(e) => setForm(p => ({ ...p, material: e.currentTarget.value }))} radius="md" />
-          <TextInput label="Bano" placeholder="Ej: Oro 18k" value={form.plating}
+          <TextInput label="Chapado" placeholder="Ej: Oro 18k" value={form.plating}
             onChange={(e) => setForm(p => ({ ...p, plating: e.currentTarget.value }))} radius="md" />
         </div>
         <TextInput label="Precio (S/.)" placeholder="0.00" value={form.price}
