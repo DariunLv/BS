@@ -14,7 +14,8 @@ import Particles from './components/Particles';
 import FloatingHearts from './components/FloatingHearts';
 import SparkleTrail from './components/SparkleTrail';
 import BottomNav from './components/BottomNav';
-import { loadStore } from './utils/store';
+import { loadStore, saveStore } from './utils/store';
+import { loadFromFirebase } from './utils/firebase';
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -30,11 +31,22 @@ export default function App() {
     setStoreData(loadStore());
   }, []);
 
-  // IMPORTANT: Refresh data on EVERY route change so new categories/products always appear
-useEffect(() => {
-  refreshData();
-  window.scrollTo(0, 0);
-}, [location.pathname, refreshData]);
+  // Cargar datos de Firebase al iniciar
+  useEffect(() => {
+    loadFromFirebase().then((firebaseData) => {
+      if (firebaseData) {
+        saveStore(firebaseData);
+        refreshData();
+      }
+    });
+  }, []);
+
+  // Scroll arriba y refrescar en cada cambio de ruta
+  useEffect(() => {
+    refreshData();
+    window.scrollTo(0, 0);
+  }, [location.pathname, refreshData]);
+
   const handleLogoClick = useCallback(() => {
     clickCountRef.current += 1;
     if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
@@ -67,7 +79,6 @@ useEffect(() => {
 
   return (
     <>
-      {/* ===== GLOBAL BACKGROUND EFFECTS ===== */}
       {!isAdminRoute && (
         <>
           <Particles

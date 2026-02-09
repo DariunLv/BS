@@ -1,4 +1,6 @@
 // src/utils/store.js
+import { saveToFirebase } from './firebase';
+
 const STORAGE_KEY = 'benito_store_data';
 
 const DEFAULT_JEWELRY_CATEGORIES = [
@@ -34,14 +36,12 @@ export function loadStore() {
       return DEFAULT_DATA;
     }
     const data = JSON.parse(raw);
-    // Ensure default categories exist
     const existingIds = data.categories.map(c => c.id);
     DEFAULT_JEWELRY_CATEGORIES.forEach(dc => {
       if (!existingIds.includes(dc.id)) {
         data.categories.push(dc);
       }
     });
-    // Ensure delivery locations exist
     if (!data.deliveryLocations) {
       data.deliveryLocations = [...DEFAULT_DELIVERY_LOCATIONS];
     }
@@ -58,6 +58,7 @@ export function loadStore() {
 export function saveStore(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    saveToFirebase(data);
   } catch (e) {
     console.error('Error saving store data:', e);
   }
@@ -65,9 +66,7 @@ export function saveStore(data) {
 
 export function getCategories(storeType = 'jewelry') {
   const data = loadStore();
-  return data.categories
-    .filter(c => c.storeType === storeType)
-    .sort((a, b) => a.order - b.order);
+  return data.categories.filter(c => c.storeType === storeType).sort((a, b) => a.order - b.order);
 }
 
 export function getAllCategories() {
@@ -104,9 +103,7 @@ export function deleteCategory(id) {
 
 export function getProducts(categoryId) {
   const data = loadStore();
-  if (categoryId) {
-    return data.products.filter(p => p.categoryId === categoryId);
-  }
+  if (categoryId) return data.products.filter(p => p.categoryId === categoryId);
   return data.products;
 }
 
@@ -155,7 +152,6 @@ export function toggleSoldOut(id) {
   return data;
 }
 
-// Delivery locations
 export function addDeliveryLocation(location) {
   const data = loadStore();
   data.deliveryLocations.push(location);
