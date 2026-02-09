@@ -1,4 +1,4 @@
-# Benito Virtual Store - Catalogo Digital
+# Benito Virtual Store - Catálogo Digital
 
 ## Requisitos Previos
 - Node.js v18 o superior
@@ -25,7 +25,7 @@ npm run dev
 ## Configuracion del Logo
 
 Coloca tu imagen de logo como `logo.png` dentro de la carpeta `public/`.
-La imagen se mostrara en el header y en el footer del catalogo.
+La imagen se mostrara en el header y en el footer del Catálogo.
 
 ## Acceso al Panel de Administrador
 
@@ -39,10 +39,10 @@ El acceso al panel de administrador esta oculto para los clientes:
 - **Agregar productos**: Titulo, descripcion, material, chapado, precio, imagenes
 - **Marcar como agotado**: Los productos mostraran "AGOTADO" elegantemente
 - **Agregar categorias**: Con nombre, imagen de categoria y animacion Lottie
-- **Gestionar dos tiendas**: Joyeria y Tienda General
+- **Gestionar dos tiendas**: joyería y Tienda General
 - **Cambiar contrasena**: Desde el icono de candado en el panel admin
 
-## Secciones del Catalogo (Joyeria)
+## Secciones del Catálogo (joyería)
 
 1. **Ofertas Especiales** - Se muestra primero con etiqueta de oferta
 2. **Anillos**
@@ -53,7 +53,7 @@ El acceso al panel de administrador esta oculto para los clientes:
 
 ## Tienda General
 
-Accesible desde el boton "Explorar Tienda" al final del catalogo de joyeria,
+Accesible desde el boton "Explorar Tienda" al final del Catálogo de joyería,
 o desde la barra de navegacion inferior. Aqui puedes agregar cualquier tipo
 de producto con sus propias categorias.
 
@@ -69,14 +69,14 @@ de producto con sus propias categorias.
 - Si limpias los datos del navegador, se perderan los productos
 - Para una version de produccion, considera usar una base de datos
 - La app esta optimizada para **dispositivos moviles**
-- No incluye carrito de compras (solo catalogo visual)
+- No incluye carrito de compras (solo Catálogo visual)
 
 ## Animaciones Lottie Incluidas
 
 El proyecto utiliza las siguientes animaciones de LottieFiles:
 - Colibri (header)
 - Pareja de colibris (hero)
-- Computadora (seccion catalogo digital)
+- Computadora (seccion Catálogo digital)
 - Oferta (seccion ofertas)
 - Anillo, Collar, Pulsera (categorias)
 - Tienda (tienda general)

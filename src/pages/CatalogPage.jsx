@@ -114,9 +114,9 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap',
             }}
           >
-            <span>Joyeria con</span>
+            <span>joyería con</span>
             <RotatingText
-              texts={['Elegancia', 'Amor', 'Estilo', 'Pasion', 'Encanto']}
+              texts={['Elegancia', 'Amor', 'Estilo', 'pasión', 'Encanto']}
               staggerFrom="last"
               initial={{ y: '100%', opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -134,7 +134,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
               color: COLORS.textMuted, maxWidth: 340, margin: '0 auto', lineHeight: 1.7,
             }}
           >
-            Descubre nuestra coleccion exclusiva de joyeria artesanal,
+            Descubre nuestra colección exclusiva de joyería ,
             disenada para momentos especiales
           </motion.p>
         </motion.div>
@@ -205,7 +205,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
               fontFamily: '"Playfair Display", serif', fontSize: '1.35rem',
               fontWeight: 600, color: COLORS.navy,
             }}>
-              Nuestras Colecciones
+              Nuestras colecciónes
             </h2>
           </div>
           <p style={{
@@ -247,14 +247,14 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
             fontFamily: '"Playfair Display", serif', fontSize: '1.15rem',
             fontWeight: 600, color: COLORS.navy, marginTop: 16, marginBottom: 8,
           }}>
-            Catalogo Digital
+            Catálogo Digital
           </h3>
           <div className="elegant-divider" style={{ marginBottom: 12 }} />
           <p style={{
             fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem',
             color: COLORS.textMuted, maxWidth: 300, margin: '0 auto', lineHeight: 1.6,
           }}>
-            Navega por nuestro catalogo completo desde la comodidad de tu dispositivo
+            Navega por nuestro Catálogo completo desde la comodidad de tu dispositivo
           </p>
         </motion.div>
       </section>

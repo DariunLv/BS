@@ -144,7 +144,7 @@ export default function SecondStorePage({ storeData, onNavigateCategory, onBack 
           }}
         >
           <IconArrowLeft size={16} />
-          Volver a Joyeria
+          Volver a joyería
         </motion.button>
       </section>
     </div>

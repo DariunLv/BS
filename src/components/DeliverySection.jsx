@@ -308,7 +308,7 @@ export default function DeliverySection({ deliveryLocations = [], shalomImage = 
             fontFamily: '"Outfit", sans-serif', fontSize: '0.9rem',
             color: 'rgba(255,255,255,0.75)', marginBottom: 6, lineHeight: 1.6,
           }}>
-            ¡No te preocupes! Hacemos envios a todo el Peru
+            ¡No te preocupes! Hacemos envíos a todo el Peru
           </p>
           <p style={{
             fontFamily: '"Outfit", sans-serif', fontSize: '1.05rem',
@@ -336,7 +336,7 @@ export default function DeliverySection({ deliveryLocations = [], shalomImage = 
                 boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
               }}
             >
-              <img src={shalomImage} alt="Envios por Shalom"
+              <img src={shalomImage} alt="envíos por Shalom"
                 style={{ width: '100%', height: 'auto', display: 'block' }}
               />
             </motion.div>
@@ -366,7 +366,7 @@ export default function DeliverySection({ deliveryLocations = [], shalomImage = 
               color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: 24,
             }}
           >
-            Entregas rapidas y seguras a nivel nacional
+            Entregas rápidas y seguras a nivel nacional
           </motion.p>
         </motion.div>
       </section>

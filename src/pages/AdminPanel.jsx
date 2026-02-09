@@ -91,7 +91,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
       <div style={{ padding: '16px 16px 0' }}>
         <SegmentedControl value={storeType} onChange={setStoreType} fullWidth
-          data={[{ value: 'jewelry', label: 'Joyeria' }, { value: 'general', label: 'Tienda General' }]}
+          data={[{ value: 'jewelry', label: 'joyería' }, { value: 'general', label: 'Tienda General' }]}
           styles={{ root: { background: COLORS.borderLight }, indicator: { background: COLORS.orange },
             label: { fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', fontWeight: 500 } }}
           radius="xl"
@@ -189,7 +189,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
               <Text size="lg" fw={600} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>Imagen de Shalom</Text>
             </div>
             <Text size="sm" c="dimmed" mb={16} style={{ fontFamily: '"Outfit", sans-serif' }}>
-              Sube una imagen de Shalom para la seccion de envios
+              Sube una imagen de Shalom para la seccion de envíos
             </Text>
             {shalomImage && (
               <div style={{ position: 'relative', width: 200, marginBottom: 12 }}>

@@ -15,7 +15,7 @@ export default function BottomNav({ currentStore, onStoreChange }) {
   const navItems = [
     {
       id: 'jewelry',
-      label: 'Joyeria',
+      label: 'joyería',
       icon: IconDiamond,
       active: isJewelry && isHome,
       onClick: () => { onStoreChange('jewelry'); navigate('/'); },
