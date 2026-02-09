@@ -105,18 +105,18 @@ export default function App() {
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={
                 <CatalogPage storeData={storeData}
-                  onNavigateCategory={(catId) => navigate(`/categoría/${catId}`)}
+                  onNavigateCategory={(catId) => navigate(`/categoria/${catId}`)}
                   onNavigateSecondStore={() => navigate('/tienda-general')}
                 />
               } />
-              <Route path="/categoría/:categoryId" element={<CategoryPage storeData={storeData} />} />
+              <Route path="/categoria/:categoryId" element={<CategoryPage storeData={storeData} />} />
               <Route path="/tienda-general" element={
                 <SecondStorePage storeData={storeData}
-                  onNavigateCategory={(catId) => navigate(`/tienda-general/categoría/${catId}`)}
+                  onNavigateCategory={(catId) => navigate(`/tienda-general/categoria/${catId}`)}
                   onBack={() => navigate('/')}
                 />
               } />
-              <Route path="/tienda-general/categoría/:categoryId"
+              <Route path="/tienda-general/categoria/:categoryId"
                 element={<SecondStoreCategoryPage storeData={storeData} onBack={() => navigate('/tienda-general')} />}
               />
               {isAdmin && (
