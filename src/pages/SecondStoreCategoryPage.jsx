@@ -23,7 +23,7 @@ export default function SecondStoreCategoryPage({ storeData, onBack }) {
     return (
       <div className="main-content" style={{ padding: 40, textAlign: 'center' }}>
         <IconShoppingBag size={48} color={COLORS.borderLight} />
-        <p style={{ color: COLORS.textMuted, marginTop: 16 }}>Categoria no encontrada</p>
+        <p style={{ color: COLORS.textMuted, marginTop: 16 }}>categoría no encontrada</p>
       </div>
     );
   }

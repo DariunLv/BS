@@ -205,14 +205,14 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
               fontFamily: '"Playfair Display", serif', fontSize: '1.35rem',
               fontWeight: 600, color: COLORS.navy,
             }}>
-              Nuestras colecciónes
+              Nuestras colecciones
             </h2>
           </div>
           <p style={{
             fontFamily: '"Cormorant Garamond", serif', fontSize: '0.95rem',
             color: COLORS.textMuted, fontStyle: 'italic', marginBottom: 28,
           }}>
-            Explora cada categoria y encuentra tu pieza ideal
+            Explora cada categoría y encuentra tu pieza ideal
           </p>
 
           <div style={{

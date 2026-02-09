@@ -23,7 +23,7 @@ export default function CategoryPage({ storeData }) {
     return (
       <div className="main-content" style={{ padding: 40, textAlign: 'center' }}>
         <IconDiamond size={48} color={COLORS.borderLight} />
-        <p style={{ color: COLORS.textMuted, marginTop: 16 }}>Categoria no encontrada</p>
+        <p style={{ color: COLORS.textMuted, marginTop: 16 }}>categoría no encontrada</p>
       </div>
     );
   }
@@ -145,7 +145,7 @@ export default function CategoryPage({ storeData }) {
               Proximamente
             </p>
             <p style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', color: COLORS.textMuted, opacity: 0.7 }}>
-              Pronto agregaremos productos a esta categoria
+              Pronto agregaremos productos a esta categoría
             </p>
           </motion.div>
         ) : (

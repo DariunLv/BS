@@ -101,7 +101,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
       <Tabs value={activeTab} onChange={setActiveTab} style={{ padding: '12px 16px' }}>
         <Tabs.List>
           <Tabs.Tab value="products" leftSection={<IconDiamond size={16} />}>Productos</Tabs.Tab>
-          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} />}>Categorias</Tabs.Tab>
+          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} />}>categorías</Tabs.Tab>
           <Tabs.Tab value="delivery" leftSection={<IconMapPin size={16} />}>Entregas</Tabs.Tab>
         </Tabs.List>
 
@@ -131,14 +131,14 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           <Button leftSection={<IconPlus size={16} />}
             onClick={() => setCategoryModal({ open: true, category: null })}
             radius="xl" style={{ background: COLORS.orange, marginBottom: 16, fontFamily: '"Outfit", sans-serif' }}>
-            Agregar Categoria
+            Agregar categoría
           </Button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {categories.map((cat) => (
               <CategoryListItem key={cat.id} category={cat}
                 productCount={(storeData?.products || []).filter(p => p.categoryId === cat.id).length}
                 onEdit={() => setCategoryModal({ open: true, category: cat })}
-                onDelete={() => { deleteCategory(cat.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Categoria eliminada', color: 'red' }); }}
+                onDelete={() => { deleteCategory(cat.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'categoría eliminada', color: 'red' }); }}
               />
             ))}
           </div>
@@ -242,7 +242,7 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
               <Text size="sm" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{product.title || 'Sin titulo'}</Text>
               {product.soldOut && <Badge size="xs" color="red" variant="filled">Agotado</Badge>}
             </div>
-            <Text size="xs" c="dimmed" lineClamp={1}>{cat?.name || 'Sin categoria'}</Text>
+            <Text size="xs" c="dimmed" lineClamp={1}>{cat?.name || 'Sin categoría'}</Text>
             <Text size="sm" fw={600} style={{ color: COLORS.orange }}>S/. {product.price || '0.00'}</Text>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -317,7 +317,7 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
 
   const handleSubmit = () => {
     if (!form.title.trim()) { notifications.show({ title: 'Error', message: 'El titulo es obligatorio', color: 'red' }); return; }
-    if (!form.categoryId) { notifications.show({ title: 'Error', message: 'Selecciona una categoria', color: 'red' }); return; }
+    if (!form.categoryId) { notifications.show({ title: 'Error', message: 'Selecciona una categoría', color: 'red' }); return; }
     if (product) {
       updateProduct(product.id, form);
       notifications.show({ title: 'Actualizado', message: 'Producto actualizado', color: 'green' });
@@ -345,7 +345,7 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
         </div>
         <TextInput label="Precio (S/.)" placeholder="0.00" value={form.price}
           onChange={(e) => setForm(p => ({ ...p, price: e.currentTarget.value }))} radius="md" />
-        <Select label="Categoria" placeholder="Seleccionar" value={form.categoryId}
+        <Select label="categoría" placeholder="Seleccionar" value={form.categoryId}
           onChange={(val) => setForm(p => ({ ...p, categoryId: val || '' }))}
           data={categories.map(c => ({ value: c.id, label: c.name }))} required radius="md" />
         <Switch label="Agotado" checked={form.soldOut}
@@ -402,22 +402,22 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
     if (!form.name.trim()) { notifications.show({ title: 'Error', message: 'El nombre es obligatorio', color: 'red' }); return; }
     if (category) {
       updateCategory(category.id, form);
-      notifications.show({ title: 'Actualizado', message: 'Categoria actualizada', color: 'green' });
+      notifications.show({ title: 'Actualizado', message: 'categoría actualizada', color: 'green' });
     } else {
       const data = loadStore();
       const maxOrder = Math.max(0, ...data.categories.filter(c => c.storeType === storeType).map(c => c.order));
       addCategory({ id: generateId(), ...form, storeType, order: maxOrder + 1 });
-      notifications.show({ title: 'Agregada', message: 'Categoria agregada', color: 'green' });
+      notifications.show({ title: 'Agregada', message: 'categoría agregada', color: 'green' });
     }
     onSave();
   };
 
   return (
-    <Modal opened={open} onClose={onClose} title={category ? 'Editar Categoria' : 'Nueva Categoria'}
+    <Modal opened={open} onClose={onClose} title={category ? 'Editar categoría' : 'Nueva categoría'}
       centered radius="lg"
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <TextInput label="Nombre de la Categoria" placeholder="Ej: Aretes" value={form.name}
+        <TextInput label="Nombre de la categoría" placeholder="Ej: Aretes" value={form.name}
           onChange={(e) => setForm(p => ({ ...p, name: e.currentTarget.value }))} required radius="md" />
 
         {/* Lottie Sticker Section */}
@@ -474,7 +474,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
 
         {/* Category Image */}
         <div>
-          <Text size="sm" fw={500} mb={6}>Imagen de Categoria</Text>
+          <Text size="sm" fw={500} mb={6}>Imagen de categoría</Text>
           {form.image && (
             <div style={{ position: 'relative', width: 100, height: 100, marginBottom: 8 }}>
               <img src={form.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} />
@@ -489,7 +489,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
 
         <Button onClick={handleSubmit} radius="xl" mt="md"
           style={{ background: COLORS.navy, fontFamily: '"Outfit", sans-serif' }}>
-          {category ? 'Guardar Cambios' : 'Agregar Categoria'}
+          {category ? 'Guardar Cambios' : 'Agregar categoría'}
         </Button>
       </div>
     </Modal>

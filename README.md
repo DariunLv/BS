@@ -38,7 +38,7 @@ El acceso al panel de administrador esta oculto para los clientes:
 ### Desde el panel puedes:
 - **Agregar productos**: Titulo, descripcion, material, chapado, precio, imagenes
 - **Marcar como agotado**: Los productos mostraran "AGOTADO" elegantemente
-- **Agregar categorias**: Con nombre, imagen de categoria y animacion Lottie
+- **Agregar categorías**: Con nombre, imagen de categoría y animacion Lottie
 - **Gestionar dos tiendas**: joyería y Tienda General
 - **Cambiar contrasena**: Desde el icono de candado en el panel admin
 
@@ -49,13 +49,13 @@ El acceso al panel de administrador esta oculto para los clientes:
 3. **Collares**
 4. **Collares para Parejas**
 5. **Pulseras**
-6. **+ Categorias personalizadas** que agregues desde el admin
+6. **+ categorías personalizadas** que agregues desde el admin
 
 ## Tienda General
 
 Accesible desde el boton "Explorar Tienda" al final del Catálogo de joyería,
 o desde la barra de navegacion inferior. Aqui puedes agregar cualquier tipo
-de producto con sus propias categorias.
+de producto con sus propias categorías.
 
 ## Imagenes de Productos
 
@@ -78,7 +78,7 @@ El proyecto utiliza las siguientes animaciones de LottieFiles:
 - Pareja de colibris (hero)
 - Computadora (seccion Catálogo digital)
 - Oferta (seccion ofertas)
-- Anillo, Collar, Pulsera (categorias)
+- Anillo, Collar, Pulsera (categorías)
 - Tienda (tienda general)
 
 ## Tecnologias
