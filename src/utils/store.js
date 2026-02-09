@@ -28,40 +28,21 @@ const DEFAULT_DATA = {
   shalomImage: '',
 };
 
+// Cache local en memoria (no localStorage)
+let cacheData = null;
+
 export function loadStore() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      saveStore(DEFAULT_DATA);
-      return DEFAULT_DATA;
-    }
-    const data = JSON.parse(raw);
-    const existingIds = data.categories.map(c => c.id);
-    DEFAULT_JEWELRY_CATEGORIES.forEach(dc => {
-      if (!existingIds.includes(dc.id)) {
-        data.categories.push(dc);
-      }
-    });
-    if (!data.deliveryLocations) {
-      data.deliveryLocations = [...DEFAULT_DELIVERY_LOCATIONS];
-    }
-    if (data.shalomImage === undefined) {
-      data.shalomImage = '';
-    }
-    return data;
-  } catch {
-    saveStore(DEFAULT_DATA);
-    return DEFAULT_DATA;
-  }
+  if (cacheData) return cacheData;
+  return DEFAULT_DATA;
 }
 
 export function saveStore(data) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    saveToFirebase(data);
-  } catch (e) {
-    console.error('Error saving store data:', e);
-  }
+  cacheData = data;
+  saveToFirebase(data);
+}
+
+export function setCacheData(data) {
+  cacheData = data;
 }
 
 export function getCategories(storeType = 'jewelry') {
@@ -202,8 +183,24 @@ export function generateId() {
 export function imageToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
     reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 600;
+        let w = img.width;
+        let h = img.height;
+        if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+        else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
     reader.readAsDataURL(file);
   });
 }
