@@ -210,6 +210,35 @@ export default function ProductModal({ product, open, onClose }) {
             </div>
           )}
 
+          {/* Tallas Disponibles */}
+          {product.tallas && product.tallas.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <span style={{
+                fontFamily: '"Outfit", sans-serif',
+                fontSize: '0.75rem',
+                color: COLORS.textMuted,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                fontWeight: 600,
+              }}>Tallas disponibles</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {product.tallas.map((t, i) => (
+                  <span key={i} style={{
+                    fontFamily: '"Outfit", sans-serif',
+                    fontSize: '0.82rem',
+                    padding: '6px 16px',
+                    borderRadius: 20,
+                    border: `1.5px solid ${COLORS.orange}`,
+                    color: COLORS.orange,
+                    fontWeight: 500,
+                    background: 'rgba(247,103,7,0.06)',
+                    transition: 'all 0.2s',
+                  }}>{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           {product.description && (
             <div style={{ marginBottom: 20 }}>
@@ -222,7 +251,7 @@ export default function ProductModal({ product, open, onClose }) {
                   marginBottom: 8,
                 }}
               >
-                Descripcion
+                Descripción
               </h4>
               <p
                 style={{

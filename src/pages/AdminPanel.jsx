@@ -91,7 +91,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
       <div style={{ padding: '16px 16px 0' }}>
         <SegmentedControl value={storeType} onChange={setStoreType} fullWidth
-          data={[{ value: 'jewelry', label: 'joyería' }, { value: 'general', label: 'Tienda General' }]}
+          data={[{ value: 'jewelry', label: 'Joyería' }, { value: 'general', label: 'Tienda General' }]}
           styles={{ root: { background: COLORS.borderLight }, indicator: { background: COLORS.orange },
             label: { fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', fontWeight: 500 } }}
           radius="xl"
@@ -101,7 +101,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
       <Tabs value={activeTab} onChange={setActiveTab} style={{ padding: '12px 16px' }}>
         <Tabs.List>
           <Tabs.Tab value="products" leftSection={<IconDiamond size={16} />}>Productos</Tabs.Tab>
-          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} />}>categorías</Tabs.Tab>
+          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} />}>Categorías</Tabs.Tab>
           <Tabs.Tab value="delivery" leftSection={<IconMapPin size={16} />}>Entregas</Tabs.Tab>
         </Tabs.List>
 
@@ -131,14 +131,14 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           <Button leftSection={<IconPlus size={16} />}
             onClick={() => setCategoryModal({ open: true, category: null })}
             radius="xl" style={{ background: COLORS.orange, marginBottom: 16, fontFamily: '"Outfit", sans-serif' }}>
-            Agregar categoría
+            Agregar Categoría
           </Button>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {categories.map((cat) => (
               <CategoryListItem key={cat.id} category={cat}
                 productCount={(storeData?.products || []).filter(p => p.categoryId === cat.id).length}
                 onEdit={() => setCategoryModal({ open: true, category: cat })}
-                onDelete={() => { deleteCategory(cat.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'categoría eliminada', color: 'red' }); }}
+                onDelete={() => { deleteCategory(cat.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Categoría eliminada', color: 'red' }); }}
               />
             ))}
           </div>
@@ -189,7 +189,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
               <Text size="lg" fw={600} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>Imagen de Shalom</Text>
             </div>
             <Text size="sm" c="dimmed" mb={16} style={{ fontFamily: '"Outfit", sans-serif' }}>
-              Sube una imagen de Shalom para la seccion de envíos
+              Sube una imagen de Shalom para la sección de envíos
             </Text>
             {shalomImage && (
               <div style={{ position: 'relative', width: 200, marginBottom: 12 }}>
@@ -239,11 +239,16 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-              <Text size="sm" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{product.title || 'Sin titulo'}</Text>
+              <Text size="sm" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{product.title || 'Sin título'}</Text>
               {product.soldOut && <Badge size="xs" color="red" variant="filled">Agotado</Badge>}
             </div>
             <Text size="xs" c="dimmed" lineClamp={1}>{cat?.name || 'Sin categoría'}</Text>
-            <Text size="sm" fw={600} style={{ color: COLORS.orange }}>S/. {product.price || '0.00'}</Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Text size="sm" fw={600} style={{ color: COLORS.orange }}>S/. {product.price || '0.00'}</Text>
+              {product.tallas && product.tallas.length > 0 && (
+                <Text size="xs" c="dimmed">· {product.tallas.length} tallas</Text>
+              )}
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <ActionIcon variant="light" color="blue" radius="xl" size="sm" onClick={onEdit}><IconEdit size={14} /></ActionIcon>
@@ -274,7 +279,6 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
             <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif' }}>{category.name}</Text>
             <Text size="xs" c="dimmed">{productCount} productos</Text>
           </div>
-          {/* Show tiny lottie preview if exists */}
           {category.lottieUrl && (
             <dotlottie-wc src={category.lottieUrl} style={{ width: '28px', height: '28px' }} autoplay loop />
           )}
@@ -291,8 +295,9 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
 function ProductFormModal({ open, product, categories, storeType, onClose, onSave }) {
   const [form, setForm] = useState({
     title: '', description: '', material: '', plating: '',
-    price: '', categoryId: '', images: [], soldOut: false,
+    price: '', categoryId: '', images: [], soldOut: false, tallas: [],
   });
+  const [newTalla, setNewTalla] = useState('');
 
   React.useEffect(() => {
     if (product) {
@@ -301,10 +306,12 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
         material: product.material || '', plating: product.plating || '',
         price: product.price || '', categoryId: product.categoryId || '',
         images: product.images || [], soldOut: product.soldOut || false,
+        tallas: product.tallas || [],
       });
     } else {
-      setForm({ title: '', description: '', material: '', plating: '', price: '', categoryId: '', images: [], soldOut: false });
+      setForm({ title: '', description: '', material: '', plating: '', price: '', categoryId: '', images: [], soldOut: false, tallas: [] });
     }
+    setNewTalla('');
   }, [product, open]);
 
   const handleImageAdd = async (file) => {
@@ -315,8 +322,19 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
 
   const removeImage = (idx) => setForm(p => ({ ...p, images: p.images.filter((_, i) => i !== idx) }));
 
+  const addTalla = () => {
+    if (newTalla.trim()) {
+      setForm(p => ({ ...p, tallas: [...p.tallas, newTalla.trim()] }));
+      setNewTalla('');
+    }
+  };
+
+  const removeTalla = (idx) => {
+    setForm(p => ({ ...p, tallas: p.tallas.filter((_, i) => i !== idx) }));
+  };
+
   const handleSubmit = () => {
-    if (!form.title.trim()) { notifications.show({ title: 'Error', message: 'El titulo es obligatorio', color: 'red' }); return; }
+    if (!form.title.trim()) { notifications.show({ title: 'Error', message: 'El título es obligatorio', color: 'red' }); return; }
     if (!form.categoryId) { notifications.show({ title: 'Error', message: 'Selecciona una categoría', color: 'red' }); return; }
     if (product) {
       updateProduct(product.id, form);
@@ -333,9 +351,9 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
       centered size="lg" radius="lg"
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <TextInput label="Titulo" placeholder="Nombre del producto" value={form.title}
+        <TextInput label="Título" placeholder="Nombre del producto" value={form.title}
           onChange={(e) => setForm(p => ({ ...p, title: e.currentTarget.value }))} required radius="md" />
-        <Textarea label="Descripcion" placeholder="Descripcion del producto" value={form.description}
+        <Textarea label="Descripción" placeholder="Descripción del producto" value={form.description}
           onChange={(e) => setForm(p => ({ ...p, description: e.currentTarget.value }))} radius="md" rows={3} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <TextInput label="Material" placeholder="Ej: Plata 925" value={form.material}
@@ -345,13 +363,49 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
         </div>
         <TextInput label="Precio (S/.)" placeholder="0.00" value={form.price}
           onChange={(e) => setForm(p => ({ ...p, price: e.currentTarget.value }))} radius="md" />
-        <Select label="categoría" placeholder="Seleccionar" value={form.categoryId}
+        <Select label="Categoría" placeholder="Seleccionar" value={form.categoryId}
           onChange={(val) => setForm(p => ({ ...p, categoryId: val || '' }))}
           data={categories.map(c => ({ value: c.id, label: c.name }))} required radius="md" />
+
+        {/* Tallas Disponibles */}
+        <div>
+          <Text size="sm" fw={500} mb={6}>Tallas Disponibles</Text>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <TextInput
+              placeholder="Ej: S, M, L, 7, 8..."
+              value={newTalla}
+              onChange={(e) => setNewTalla(e.currentTarget.value)}
+              radius="md"
+              style={{ flex: 1 }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addTalla();
+                }
+              }}
+            />
+            <Button radius="md" style={{ background: COLORS.orange }} onClick={addTalla}>+</Button>
+          </div>
+          {form.tallas.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {form.tallas.map((t, i) => (
+                <Badge key={i} size="lg" radius="xl" variant="outline" color="orange"
+                  rightSection={
+                    <ActionIcon size="xs" variant="transparent" color="red" onClick={() => removeTalla(i)}>
+                      <IconX size={10} />
+                    </ActionIcon>
+                  }
+                >{t}</Badge>
+              ))}
+            </div>
+          )}
+          <Text size="xs" c="dimmed" mt={4}>Escribe una talla y presiona Enter o el botón +</Text>
+        </div>
+
         <Switch label="Agotado" checked={form.soldOut}
           onChange={(e) => setForm(p => ({ ...p, soldOut: e.currentTarget.checked }))} color="orange" />
         <div>
-          <Text size="sm" fw={500} mb={6}>Imagenes (1200x1200 recomendado)</Text>
+          <Text size="sm" fw={500} mb={6}>Imágenes (1200x1200 recomendado)</Text>
           {form.images.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
               {form.images.map((img, i) => (
@@ -365,7 +419,7 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
           )}
           <FileInput accept="image/*" placeholder="Seleccionar imagen" leftSection={<IconUpload size={16} />}
             onChange={handleImageAdd} radius="md" clearable />
-          <Text size="xs" c="dimmed" mt={4}>Puedes agregar varias imagenes una por una</Text>
+          <Text size="xs" c="dimmed" mt={4}>Puedes agregar varias imágenes una por una</Text>
         </div>
         <Button onClick={handleSubmit} radius="xl" size="md" mt="md"
           style={{ background: COLORS.navy, fontFamily: '"Outfit", sans-serif' }}>
@@ -378,12 +432,11 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
 
 function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
   const [form, setForm] = useState({ name: '', lottieUrl: '', image: '' });
-  const [lottieMode, setLottieMode] = useState('preset'); // 'preset' or 'link'
+  const [lottieMode, setLottieMode] = useState('preset');
 
   React.useEffect(() => {
     if (category) {
       setForm({ name: category.name || '', lottieUrl: category.lottieUrl || '', image: category.image || '' });
-      // Detect if it's a custom link (not in presets)
       const isPreset = LOTTIE_PRESETS.some(p => p.value === (category.lottieUrl || ''));
       setLottieMode(isPreset ? 'preset' : 'link');
     } else {
@@ -402,18 +455,18 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
     if (!form.name.trim()) { notifications.show({ title: 'Error', message: 'El nombre es obligatorio', color: 'red' }); return; }
     if (category) {
       updateCategory(category.id, form);
-      notifications.show({ title: 'Actualizado', message: 'categoría actualizada', color: 'green' });
+      notifications.show({ title: 'Actualizado', message: 'Categoría actualizada', color: 'green' });
     } else {
       const data = loadStore();
       const maxOrder = Math.max(0, ...data.categories.filter(c => c.storeType === storeType).map(c => c.order));
       addCategory({ id: generateId(), ...form, storeType, order: maxOrder + 1 });
-      notifications.show({ title: 'Agregada', message: 'categoría agregada', color: 'green' });
+      notifications.show({ title: 'Agregada', message: 'Categoría agregada', color: 'green' });
     }
     onSave();
   };
 
   return (
-    <Modal opened={open} onClose={onClose} title={category ? 'Editar categoría' : 'Nueva categoría'}
+    <Modal opened={open} onClose={onClose} title={category ? 'Editar Categoría' : 'Nueva Categoría'}
       centered radius="lg"
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -422,7 +475,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
 
         {/* Lottie Sticker Section */}
         <div>
-          <Text size="sm" fw={500} mb={6}>Sticker Lottie (animacion)</Text>
+          <Text size="sm" fw={500} mb={6}>Sticker Lottie (animación)</Text>
 
           <SegmentedControl
             value={lottieMode} onChange={(val) => { setLottieMode(val); if (val === 'preset') setForm(p => ({ ...p, lottieUrl: '' })); }}
@@ -440,7 +493,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
 
           {lottieMode === 'preset' ? (
             <Select
-              placeholder="Seleccionar animacion"
+              placeholder="Seleccionar animación"
               value={form.lottieUrl}
               onChange={(val) => setForm(p => ({ ...p, lottieUrl: val || '' }))}
               data={LOTTIE_PRESETS}
@@ -453,7 +506,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
               onChange={(e) => setForm(p => ({ ...p, lottieUrl: e.currentTarget.value }))}
               leftSection={<IconLink size={16} />}
               radius="md"
-              description="Pega el link de LottieFiles aqui"
+              description="Pega el link de LottieFiles aquí"
             />
           )}
 
@@ -489,7 +542,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
 
         <Button onClick={handleSubmit} radius="xl" mt="md"
           style={{ background: COLORS.navy, fontFamily: '"Outfit", sans-serif' }}>
-          {category ? 'Guardar Cambios' : 'Agregar categoría'}
+          {category ? 'Guardar Cambios' : 'Agregar Categoría'}
         </Button>
       </div>
     </Modal>
@@ -511,7 +564,7 @@ function LocationFormModal({ open, location, onClose, onSave }) {
     if (!form.name.trim()) { notifications.show({ title: 'Error', message: 'El nombre es obligatorio', color: 'red' }); return; }
     const lat = parseFloat(form.lat);
     const lng = parseFloat(form.lng);
-    if (isNaN(lat) || isNaN(lng)) { notifications.show({ title: 'Error', message: 'Coordenadas invalidas', color: 'red' }); return; }
+    if (isNaN(lat) || isNaN(lng)) { notifications.show({ title: 'Error', message: 'Coordenadas inválidas', color: 'red' }); return; }
     if (location) {
       updateDeliveryLocation(location.id, { name: form.name, lat, lng });
       notifications.show({ title: 'Actualizado', message: 'Punto de entrega actualizado', color: 'green' });
@@ -537,11 +590,11 @@ function LocationFormModal({ open, location, onClose, onSave }) {
         </div>
         <Card padding="sm" radius="md" style={{ background: '#f0f4ff', border: '1px solid #dde4f0' }}>
           <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', lineHeight: 1.5 }}>
-            <strong>Como obtener coordenadas:</strong><br />
+            <strong>Cómo obtener coordenadas:</strong><br />
             1. Abre Google Maps<br />
             2. Click derecho en el lugar<br />
-            3. Copia los numeros (ej: -15.4980, -70.1290)<br />
-            4. Primer numero = Latitud, segundo = Longitud
+            3. Copia los números (ej: -15.4980, -70.1290)<br />
+            4. Primer número = Latitud, segundo = Longitud
           </Text>
         </Card>
         <Button onClick={handleSubmit} radius="xl" mt="md"
@@ -557,17 +610,17 @@ function PasswordModal({ open, onClose }) {
   const [newPw, setNewPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const handleSave = () => {
-    if (newPw.length < 4) { notifications.show({ title: 'Error', message: 'Minimo 4 caracteres', color: 'red' }); return; }
+    if (newPw.length < 4) { notifications.show({ title: 'Error', message: 'Mínimo 4 caracteres', color: 'red' }); return; }
     if (newPw !== confirm) { notifications.show({ title: 'Error', message: 'No coinciden', color: 'red' }); return; }
     changePassword(newPw);
-    notifications.show({ title: 'Listo', message: 'Contrasena cambiada', color: 'green' });
+    notifications.show({ title: 'Listo', message: 'Contraseña cambiada', color: 'green' });
     setNewPw(''); setConfirm(''); onClose();
   };
   return (
-    <Modal opened={open} onClose={onClose} title="Cambiar Contrasena" centered radius="lg"
+    <Modal opened={open} onClose={onClose} title="Cambiar Contraseña" centered radius="lg"
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600 } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <TextInput type="password" label="Nueva Contrasena" value={newPw}
+        <TextInput type="password" label="Nueva Contraseña" value={newPw}
           onChange={(e) => setNewPw(e.currentTarget.value)} radius="md" />
         <TextInput type="password" label="Confirmar" value={confirm}
           onChange={(e) => setConfirm(e.currentTarget.value)} radius="md" />

@@ -36,7 +36,7 @@ El acceso al panel de administrador esta oculto para los clientes:
 3. Accederas al panel de administracion
 
 ### Desde el panel puedes:
-- **Agregar productos**: Titulo, descripcion, material, chapado, precio, imagenes
+- **Agregar productos**: Titulo, descripción, material, chapado, precio, imagenes
 - **Marcar como agotado**: Los productos mostraran "AGOTADO" elegantemente
 - **Agregar categorías**: Con nombre, imagen de categoría y animacion Lottie
 - **Gestionar dos tiendas**: joyería y Tienda General
