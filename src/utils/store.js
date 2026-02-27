@@ -30,6 +30,9 @@ const DEFAULT_DATA = {
   investments: [],
   shareholders: [],
   pendingSales: [],
+  capital: [],
+  frecuentClients: [],
+  pagosAccionista: [],
 };
 
 let cacheData = null;
@@ -49,6 +52,9 @@ export function setCacheData(data) {
   if (!data.investments) data.investments = [];
   if (!data.shareholders) data.shareholders = [];
   if (!data.pendingSales) data.pendingSales = [];
+  if (!data.capital) data.capital = [];
+  if (!data.frecuentClients) data.frecuentClients = [];
+  if (!data.pagosAccionista) data.pagosAccionista = [];
   cacheData = data;
 }
 
@@ -315,6 +321,83 @@ export function completePendingSale(id) {
     data.pendingSales[idx].completedDate = new Date().toISOString().split('T')[0];
     saveStore(data);
   }
+  return data;
+}
+
+/* ====== CAPITAL / ACTIVOS ====== */
+export function getCapital() {
+  const data = loadStore();
+  return data.capital || [];
+}
+
+export function addCapital(item) {
+  const data = loadStore();
+  if (!data.capital) data.capital = [];
+  data.capital.push(item);
+  saveStore(data);
+  return data;
+}
+
+export function deleteCapital(id) {
+  const data = loadStore();
+  if (!data.capital) data.capital = [];
+  data.capital = data.capital.filter(c => c.id !== id);
+  saveStore(data);
+  return data;
+}
+
+/* ====== CLIENTES FRECUENTES ====== */
+export function getFrecuentClients() {
+  const data = loadStore();
+  return data.frecuentClients || [];
+}
+
+export function addFrecuentClient(client) {
+  const data = loadStore();
+  if (!data.frecuentClients) data.frecuentClients = [];
+  data.frecuentClients.push(client);
+  saveStore(data);
+  return data;
+}
+
+export function updateFrecuentClient(id, updates) {
+  const data = loadStore();
+  if (!data.frecuentClients) data.frecuentClients = [];
+  const idx = data.frecuentClients.findIndex(c => c.id === id);
+  if (idx !== -1) {
+    data.frecuentClients[idx] = { ...data.frecuentClients[idx], ...updates };
+    saveStore(data);
+  }
+  return data;
+}
+
+export function deleteFrecuentClient(id) {
+  const data = loadStore();
+  if (!data.frecuentClients) data.frecuentClients = [];
+  data.frecuentClients = data.frecuentClients.filter(c => c.id !== id);
+  saveStore(data);
+  return data;
+}
+
+/* ====== PAGOS ACCIONISTA ====== */
+export function getPagosAccionista() {
+  const data = loadStore();
+  return data.pagosAccionista || [];
+}
+
+export function addPagoAccionista(pago) {
+  const data = loadStore();
+  if (!data.pagosAccionista) data.pagosAccionista = [];
+  data.pagosAccionista.push(pago);
+  saveStore(data);
+  return data;
+}
+
+export function deletePagoAccionista(id) {
+  const data = loadStore();
+  if (!data.pagosAccionista) data.pagosAccionista = [];
+  data.pagosAccionista = data.pagosAccionista.filter(p => p.id !== id);
+  saveStore(data);
   return data;
 }
 

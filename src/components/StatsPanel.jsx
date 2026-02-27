@@ -1,3 +1,4 @@
+// src/components/StatsPanel.jsx
 import React, { useMemo, useRef, useEffect } from 'react';
 import { Card, Text, Badge, Select } from '@mantine/core';
 import {
@@ -219,14 +220,14 @@ export default function StatsPanel({ sales, investments }) {
      ============================================================ */
 
   const baseTextStyle = { fontFamily: '"Outfit", sans-serif', fontSize: 11 };
-  const baseTitleStyle = { fontFamily: '"Playfair Display", serif', fontSize: 14, fontWeight: 600, color: COLORS.navy, left: 'center' };
-  const gridBase = { left: 48, right: 16, top: 50, bottom: 30 };
+  const baseTitleStyle = { fontFamily: '"Playfair Display", serif', fontSize: 15, fontWeight: 600, color: COLORS.navy, left: 'center', top: 6 };
+  const gridBase = { left: 50, right: 20, top: 65, bottom: 32 };
 
   // 1) Ventas vs Gastos vs Ganancia mensual
   const chartVentasGastos = {
     title: { text: 'Ventas vs Gastos Mensual', ...baseTitleStyle },
     tooltip: { trigger: 'axis', textStyle: baseTextStyle },
-    legend: { top: 28, textStyle: { ...baseTextStyle, fontSize: 10 } },
+    legend: { top: 34, textStyle: { ...baseTextStyle, fontSize: 10 } },
     grid: gridBase,
     xAxis: { type: 'category', data: monthlyData.map(m => m.shortLabel), axisLabel: baseTextStyle },
     yAxis: { type: 'value', axisLabel: { ...baseTextStyle, formatter: 'S/.{value}' } },
@@ -282,15 +283,14 @@ export default function StatsPanel({ sales, investments }) {
   const chartGastosPie = {
     title: { text: 'Distribucion de Gastos', ...baseTitleStyle },
     tooltip: { trigger: 'item', textStyle: baseTextStyle, formatter: '{b}: S/.{c} ({d}%)' },
-    legend: { bottom: 0, textStyle: { ...baseTextStyle, fontSize: 9 } },
-    grid: { top: 40 },
+    legend: { bottom: 0, textStyle: { ...baseTextStyle, fontSize: 10 }, type: 'scroll' },
     color: ['#f76707', '#e11d48', '#2c4a80', '#059669', '#7c3aed', '#0891b2', '#d97706', '#64748b'],
     series: [{
-      type: 'pie', radius: ['40%', '70%'],
-      center: ['50%', '48%'],
+      type: 'pie', radius: ['35%', '60%'],
+      center: ['50%', '50%'],
       data: gastosPorCategoria,
-      label: { show: false },
-      emphasis: { label: { show: true, fontWeight: 'bold', fontSize: 12, fontFamily: '"Outfit", sans-serif' } },
+      label: { show: true, formatter: '{b}\n{d}%', ...baseTextStyle, fontSize: 10 },
+      emphasis: { label: { show: true, fontWeight: 'bold', fontSize: 13, fontFamily: '"Outfit", sans-serif' } },
       itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
     }],
   };
@@ -299,12 +299,13 @@ export default function StatsPanel({ sales, investments }) {
   const chartSocioPie = {
     title: { text: 'Ventas por Socio', ...baseTitleStyle },
     tooltip: { trigger: 'item', textStyle: baseTextStyle, formatter: '{b}: S/.{c} ({d}%)' },
+    legend: { bottom: 0, textStyle: { ...baseTextStyle, fontSize: 10 } },
     color: ['#2c4a80', '#f76707', '#7c3aed', '#94a3b8'],
     series: [{
-      type: 'pie', radius: ['40%', '70%'],
-      center: ['50%', '55%'],
+      type: 'pie', radius: ['35%', '60%'],
+      center: ['50%', '50%'],
       data: ventasPorSocio,
-      label: { formatter: '{b}\n{d}%', ...baseTextStyle, fontSize: 10 },
+      label: { show: true, formatter: '{b}\n{d}%', ...baseTextStyle, fontSize: 11 },
       itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
     }],
   };
@@ -313,7 +314,7 @@ export default function StatsPanel({ sales, investments }) {
   const chartSocioMes = {
     title: { text: 'Ventas por Socio / Mes', ...baseTitleStyle },
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: baseTextStyle },
-    legend: { top: 28, textStyle: { ...baseTextStyle, fontSize: 10 } },
+    legend: { top: 34, textStyle: { ...baseTextStyle, fontSize: 10 } },
     grid: gridBase,
     xAxis: { type: 'category', data: ventasSocioPorMes.map(m => m.month), axisLabel: baseTextStyle },
     yAxis: { type: 'value', axisLabel: { ...baseTextStyle, formatter: 'S/.{value}' } },
@@ -328,9 +329,9 @@ export default function StatsPanel({ sales, investments }) {
   const chartMedioEntrega = {
     title: { text: 'Medio de Entrega', ...baseTitleStyle },
     tooltip: { trigger: 'axis', textStyle: baseTextStyle },
-    grid: { left: 120, right: 24, top: 40, bottom: 16 },
+    grid: { left: 110, right: 40, top: 58, bottom: 16 },
     xAxis: { type: 'value', axisLabel: baseTextStyle },
-    yAxis: { type: 'category', data: ventasPorMedio.map(m => m.name), axisLabel: { ...baseTextStyle, fontSize: 10 } },
+    yAxis: { type: 'category', data: ventasPorMedio.map(m => m.name), axisLabel: { ...baseTextStyle, fontSize: 10, width: 100, overflow: 'truncate' } },
     series: [{
       type: 'bar', data: ventasPorMedio.map(m => m.value),
       itemStyle: {
@@ -347,7 +348,7 @@ export default function StatsPanel({ sales, investments }) {
   const chartAcumulado = {
     title: { text: 'Tendencia Acumulada', ...baseTitleStyle },
     tooltip: { trigger: 'axis', textStyle: baseTextStyle },
-    legend: { top: 28, textStyle: { ...baseTextStyle, fontSize: 10 } },
+    legend: { top: 34, textStyle: { ...baseTextStyle, fontSize: 10 } },
     grid: gridBase,
     xAxis: { type: 'category', data: acumulado.map(a => a.label), axisLabel: baseTextStyle },
     yAxis: { type: 'value', axisLabel: { ...baseTextStyle, formatter: 'S/.{value}' } },
@@ -394,7 +395,7 @@ export default function StatsPanel({ sales, investments }) {
   const chartProyeccion = {
     title: { text: 'Tendencia y Proyeccion (Reg. Lineal)', ...baseTitleStyle },
     tooltip: { trigger: 'axis', textStyle: baseTextStyle },
-    legend: { top: 28, textStyle: { ...baseTextStyle, fontSize: 10 } },
+    legend: { top: 34, textStyle: { ...baseTextStyle, fontSize: 10 } },
     grid: gridBase,
     xAxis: { type: 'category', data: projLabels, axisLabel: baseTextStyle },
     yAxis: { type: 'value', axisLabel: { ...baseTextStyle, formatter: 'S/.{value}' } },
@@ -417,11 +418,11 @@ export default function StatsPanel({ sales, investments }) {
   const chartTopProductos = {
     title: { text: 'Top Productos (por ingreso)', ...baseTitleStyle },
     tooltip: { trigger: 'axis', textStyle: baseTextStyle },
-    grid: { left: 110, right: 24, top: 40, bottom: 16 },
+    grid: { left: 100, right: 50, top: 58, bottom: 16 },
     xAxis: { type: 'value', axisLabel: { ...baseTextStyle, formatter: 'S/.{value}' } },
     yAxis: {
       type: 'category',
-      data: topProductos.map(p => p.name.length > 16 ? p.name.slice(0, 16) + '...' : p.name).reverse(),
+      data: topProductos.map(p => p.name.length > 14 ? p.name.slice(0, 14) + '..' : p.name).reverse(),
       axisLabel: { ...baseTextStyle, fontSize: 9 },
     },
     series: [{
@@ -515,30 +516,30 @@ export default function StatsPanel({ sales, investments }) {
           <EChart option={chartGananciaMensual} height={250} />
         </ChartCard>
 
-        {/* Dos columnas: Gastos pie + Socio pie */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <ChartCard>
-            <EChart option={chartGastosPie} height={280} />
-          </ChartCard>
-          <ChartCard>
-            <EChart option={chartSocioPie} height={280} />
-          </ChartCard>
-        </div>
+        {/* Distribucion de gastos */}
+        <ChartCard>
+          <EChart option={chartGastosPie} height={260} />
+        </ChartCard>
+
+        {/* Ventas por socio */}
+        <ChartCard>
+          <EChart option={chartSocioPie} height={260} />
+        </ChartCard>
 
         {/* Ventas por socio por mes */}
         <ChartCard>
           <EChart option={chartSocioMes} height={260} />
         </ChartCard>
 
-        {/* Dos columnas: Medio entrega + Top productos */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <ChartCard>
-            <EChart option={chartMedioEntrega} height={220} />
-          </ChartCard>
-          <ChartCard>
-            <EChart option={chartTopProductos} height={280} />
-          </ChartCard>
-        </div>
+        {/* Medio de entrega */}
+        <ChartCard>
+          <EChart option={chartMedioEntrega} height={220} />
+        </ChartCard>
+
+        {/* Top productos */}
+        <ChartCard>
+          <EChart option={chartTopProductos} height={280} />
+        </ChartCard>
 
         {/* Acumulado */}
         <ChartCard>
