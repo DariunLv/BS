@@ -276,3 +276,55 @@ dotlottie-wc { display: block; }
 @media (min-width: 769px) {
   .hide-desktop { display: none !important; }
 }
+
+/* ========= FIX: Leaflet popup profesional ========= */
+.benito-marker {
+  background: none !important;
+  border: none !important;
+}
+.benito-popup .leaflet-popup-content-wrapper {
+  border-radius: 14px !important;
+  box-shadow: 0 8px 28px rgba(26, 39, 68, 0.18) !important;
+  border: 1px solid rgba(232, 237, 245, 0.6) !important;
+  padding: 0 !important;
+}
+.benito-popup .leaflet-popup-content {
+  margin: 0 !important;
+}
+.benito-popup .leaflet-popup-tip {
+  box-shadow: 0 4px 12px rgba(26, 39, 68, 0.12) !important;
+  border: 1px solid rgba(232, 237, 245, 0.4) !important;
+}
+.leaflet-control-zoom a {
+  font-family: 'Outfit', sans-serif !important;
+  border-radius: 8px !important;
+  color: var(--navy) !important;
+  border: 1px solid var(--border-light) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 16px !important;
+}
+.leaflet-control-zoom {
+  border: none !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(26, 39, 68, 0.12) !important;
+}
+
+/* ========= FIX: SegmentedControl texto blanco cuando esta activo ========= */
+.mantine-SegmentedControl-label[data-active] {
+  color: #ffffff !important;
+}
+.mantine-SegmentedControl-label[data-active]:hover {
+  color: #ffffff !important;
+}
+
+/* ========= MEJORA: Admin panel cards hover suave ========= */
+.admin-panel .mantine-Card-root {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.admin-panel .mantine-Card-root:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(26, 39, 68, 0.08);
+}

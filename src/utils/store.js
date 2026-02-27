@@ -26,9 +26,12 @@ const DEFAULT_DATA = {
   adminPassword: 'benito2026',
   deliveryLocations: [...DEFAULT_DELIVERY_LOCATIONS],
   shalomImage: '',
+  sales: [],
+  investments: [],
+  shareholders: [],
+  pendingSales: [],
 };
 
-// Cache local en memoria (no localStorage)
 let cacheData = null;
 
 export function loadStore() {
@@ -42,6 +45,10 @@ export function saveStore(data) {
 }
 
 export function setCacheData(data) {
+  if (!data.sales) data.sales = [];
+  if (!data.investments) data.investments = [];
+  if (!data.shareholders) data.shareholders = [];
+  if (!data.pendingSales) data.pendingSales = [];
   cacheData = data;
 }
 
@@ -164,6 +171,151 @@ export function updateShalomImage(imageBase64) {
   return data;
 }
 
+/* ========= VENTAS (SALES) ========= */
+export function getSales() {
+  const data = loadStore();
+  return data.sales || [];
+}
+
+export function addSale(sale) {
+  const data = loadStore();
+  if (!data.sales) data.sales = [];
+  data.sales.push(sale);
+  saveStore(data);
+  return data;
+}
+
+export function updateSale(id, updates) {
+  const data = loadStore();
+  if (!data.sales) data.sales = [];
+  const idx = data.sales.findIndex(s => s.id === id);
+  if (idx !== -1) {
+    data.sales[idx] = { ...data.sales[idx], ...updates };
+    saveStore(data);
+  }
+  return data;
+}
+
+export function deleteSale(id) {
+  const data = loadStore();
+  if (!data.sales) data.sales = [];
+  data.sales = data.sales.filter(s => s.id !== id);
+  saveStore(data);
+  return data;
+}
+
+/* ========= INVERSIONES (INVESTMENTS) ========= */
+export function getInvestments() {
+  const data = loadStore();
+  return data.investments || [];
+}
+
+export function addInvestment(investment) {
+  const data = loadStore();
+  if (!data.investments) data.investments = [];
+  data.investments.push(investment);
+  saveStore(data);
+  return data;
+}
+
+export function updateInvestment(id, updates) {
+  const data = loadStore();
+  if (!data.investments) data.investments = [];
+  const idx = data.investments.findIndex(i => i.id === id);
+  if (idx !== -1) {
+    data.investments[idx] = { ...data.investments[idx], ...updates };
+    saveStore(data);
+  }
+  return data;
+}
+
+export function deleteInvestment(id) {
+  const data = loadStore();
+  if (!data.investments) data.investments = [];
+  data.investments = data.investments.filter(i => i.id !== id);
+  saveStore(data);
+  return data;
+}
+
+/* ========= ACCIONISTAS (SHAREHOLDERS) ========= */
+export function getShareholders() {
+  const data = loadStore();
+  return data.shareholders || [];
+}
+
+export function addShareholder(sh) {
+  const data = loadStore();
+  if (!data.shareholders) data.shareholders = [];
+  data.shareholders.push(sh);
+  saveStore(data);
+  return data;
+}
+
+export function updateShareholder(id, updates) {
+  const data = loadStore();
+  if (!data.shareholders) data.shareholders = [];
+  const idx = data.shareholders.findIndex(s => s.id === id);
+  if (idx !== -1) {
+    data.shareholders[idx] = { ...data.shareholders[idx], ...updates };
+    saveStore(data);
+  }
+  return data;
+}
+
+export function deleteShareholder(id) {
+  const data = loadStore();
+  if (!data.shareholders) data.shareholders = [];
+  data.shareholders = data.shareholders.filter(s => s.id !== id);
+  saveStore(data);
+  return data;
+}
+
+/* ========= VENTAS PENDIENTES ========= */
+export function getPendingSales() {
+  const data = loadStore();
+  return data.pendingSales || [];
+}
+
+export function addPendingSale(ps) {
+  const data = loadStore();
+  if (!data.pendingSales) data.pendingSales = [];
+  data.pendingSales.push(ps);
+  saveStore(data);
+  return data;
+}
+
+export function updatePendingSale(id, updates) {
+  const data = loadStore();
+  if (!data.pendingSales) data.pendingSales = [];
+  const idx = data.pendingSales.findIndex(p => p.id === id);
+  if (idx !== -1) {
+    data.pendingSales[idx] = { ...data.pendingSales[idx], ...updates };
+    saveStore(data);
+  }
+  return data;
+}
+
+export function deletePendingSale(id) {
+  const data = loadStore();
+  if (!data.pendingSales) data.pendingSales = [];
+  data.pendingSales = data.pendingSales.filter(p => p.id !== id);
+  saveStore(data);
+  return data;
+}
+
+export function completePendingSale(id) {
+  const data = loadStore();
+  if (!data.pendingSales) data.pendingSales = [];
+  const idx = data.pendingSales.findIndex(p => p.id === id);
+  if (idx !== -1) {
+    data.pendingSales[idx].completed = true;
+    data.pendingSales[idx].completedDate = new Date().toISOString().split('T')[0];
+    saveStore(data);
+  }
+  return data;
+}
+
+/* ========= UTILIDADES ========= */
 export function verifyPassword(pw) {
   const data = loadStore();
   return pw === data.adminPassword;

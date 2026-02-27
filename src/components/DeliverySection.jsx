@@ -1,7 +1,7 @@
 // src/components/DeliverySection.jsx
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { IconMapPin, IconTruck, IconPackage, IconMapPinFilled } from '@tabler/icons-react';
+import { IconMapPin, IconTruck, IconPackage, IconMapPinFilled, IconNavigation } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 
 const fadeUp = {
@@ -20,39 +20,33 @@ function LeafletMap({ locations }) {
 
     import('leaflet').then((L) => {
       delete L.Icon.Default.prototype._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      });
 
-      // Custom styled orange marker
-      const createCustomIcon = (name) => {
+      // SVG marker profesional (sin emojis)
+      const createCustomIcon = (index) => {
         return L.divIcon({
-          className: 'custom-map-marker',
+          className: 'benito-marker',
           html: `
             <div style="
               display: flex; flex-direction: column; align-items: center;
-              filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+              filter: drop-shadow(0 4px 8px rgba(26,39,68,0.35));
+              transform: translate(-50%, -100%);
             ">
-              <div style="
-                width: 36px; height: 36px; border-radius: 50% 50% 50% 0;
-                background: linear-gradient(135deg, #f76707, #ff922b);
-                transform: rotate(-45deg);
-                display: flex; align-items: center; justify-content: center;
-                border: 2px solid white;
-                box-shadow: 0 2px 8px rgba(247,103,7,0.4);
-              ">
-                <div style="
-                  transform: rotate(45deg); color: white;
-                  font-size: 16px; font-weight: bold;
-                ">📍</div>
-              </div>
+              <svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C7.163 0 0 7.163 0 16c0 12 16 26 16 26s16-14 16-26C32 7.163 24.837 0 16 0z" fill="url(#grad_${index})"/>
+                <circle cx="16" cy="15" r="7" fill="white" opacity="0.95"/>
+                <circle cx="16" cy="15" r="3.5" fill="#f76707"/>
+                <defs>
+                  <linearGradient id="grad_${index}" x1="0" y1="0" x2="32" y2="42" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#f76707"/>
+                    <stop offset="1" stop-color="#e8590c"/>
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
           `,
-          iconSize: [36, 42],
-          iconAnchor: [18, 42],
-          popupAnchor: [0, -42],
+          iconSize: [32, 42],
+          iconAnchor: [16, 42],
+          popupAnchor: [0, -44],
         });
       };
 
@@ -69,13 +63,11 @@ function LeafletMap({ locations }) {
         zoomControl: false,
       }).setView(center, 15);
 
-      // Add zoom control to bottom right
       L.control.zoom({ position: 'bottomright' }).addTo(map);
-
       mapInstanceRef.current = map;
 
-      // Prettier tile layer - CartoDB Voyager (cleaner, modern look)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      // Tile layer limpio y moderno
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
         maxZoom: 19,
         subdomains: 'abcd',
@@ -83,37 +75,64 @@ function LeafletMap({ locations }) {
 
       if (locations && locations.length > 0) {
         const bounds = [];
-        locations.forEach((loc) => {
+        locations.forEach((loc, i) => {
           if (loc.lat && loc.lng) {
-            const icon = createCustomIcon(loc.name);
+            const icon = createCustomIcon(i);
             const marker = L.marker([loc.lat, loc.lng], { icon }).addTo(map);
+
             marker.bindPopup(
               `<div style="
-                font-family: 'Outfit', sans-serif; text-align: center; padding: 8px 4px; min-width: 140px;
+                font-family: 'Outfit', sans-serif;
+                text-align: center;
+                padding: 10px 8px 8px;
+                min-width: 160px;
               ">
                 <div style="
-                  font-size: 14px; font-weight: 600; color: #1a2744; margin-bottom: 4px;
+                  width: 32px; height: 32px; border-radius: 50%;
+                  background: linear-gradient(135deg, #fff4e6, #ffe8cc);
+                  display: flex; align-items: center; justify-content: center;
+                  margin: 0 auto 8px;
+                  border: 1.5px solid rgba(247,103,7,0.2);
+                ">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f76707" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                  </svg>
+                </div>
+                <div style="
+                  font-size: 13px; font-weight: 600; color: #1a2744;
+                  margin-bottom: 6px; line-height: 1.3;
                 ">${loc.name}</div>
                 <div style="
-                  display: inline-flex; align-items: center; gap: 4px;
-                  background: linear-gradient(135deg, #f76707, #ff922b);
-                  color: white; padding: 3px 10px; border-radius: 12px;
-                  font-size: 10px; font-weight: 500; letter-spacing: 0.5px;
+                  display: inline-flex; align-items: center; gap: 5px;
+                  background: linear-gradient(135deg, #1a2744, #2c4a80);
+                  color: white; padding: 4px 12px; border-radius: 14px;
+                  font-size: 9.5px; font-weight: 500; letter-spacing: 0.5px;
+                  text-transform: uppercase;
                 ">
-                  📍 Punto de entrega
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  Punto de entrega
                 </div>
               </div>`,
-              { className: 'benito-popup', closeButton: false }
+              {
+                className: 'benito-popup',
+                closeButton: false,
+                maxWidth: 200,
+              }
             );
 
-            // Add a subtle pulsing circle around marker
+            // Circulo sutil de area
             L.circle([loc.lat, loc.lng], {
-              radius: 60,
+              radius: 50,
               color: '#f76707',
               fillColor: '#f76707',
-              fillOpacity: 0.08,
+              fillOpacity: 0.06,
               weight: 1,
-              opacity: 0.25,
+              opacity: 0.2,
+              dashArray: '4 4',
             }).addTo(map);
 
             bounds.push([loc.lat, loc.lng]);
@@ -121,7 +140,7 @@ function LeafletMap({ locations }) {
         });
 
         if (bounds.length > 1) {
-          map.fitBounds(bounds, { padding: [40, 40] });
+          map.fitBounds(bounds, { padding: [50, 50] });
         }
       }
 
@@ -138,40 +157,68 @@ function LeafletMap({ locations }) {
 
   return (
     <div style={{
-      position: 'relative', borderRadius: 20, overflow: 'hidden',
-      boxShadow: '0 12px 40px rgba(26,39,68,0.12)',
+      position: 'relative', borderRadius: 16, overflow: 'hidden',
+      boxShadow: '0 8px 32px rgba(26,39,68,0.12)',
+      border: `1px solid ${COLORS.borderLight}`,
     }}>
-      {/* Decorative top bar */}
+      {/* Header del mapa */}
       <div style={{
         background: `linear-gradient(135deg, ${COLORS.navy} 0%, ${COLORS.navyLight} 100%)`,
-        padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8,
+        padding: '12px 18px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <IconMapPinFilled size={14} color={COLORS.orange} />
-        <span style={{
-          fontFamily: '"Outfit", sans-serif', fontSize: '0.7rem',
-          color: 'rgba(255,255,255,0.75)', letterSpacing: '1.5px', textTransform: 'uppercase',
-          fontWeight: 500,
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: 'rgba(247,103,7,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid rgba(247,103,7,0.25)',
+          }}>
+            <IconNavigation size={14} color={COLORS.orange} />
+          </div>
+          <div>
+            <span style={{
+              fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem',
+              color: 'white', fontWeight: 600, letterSpacing: '0.3px',
+              display: 'block', lineHeight: 1.2,
+            }}>
+              Puntos de Entrega
+            </span>
+            <span style={{
+              fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
+              color: 'rgba(255,255,255,0.5)', fontWeight: 400,
+            }}>
+              Juliaca, Puno
+            </span>
+          </div>
+        </div>
+        <div style={{
+          background: 'rgba(255,255,255,0.1)',
+          padding: '3px 10px', borderRadius: 12,
+          fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
+          color: 'rgba(255,255,255,0.6)', fontWeight: 500,
         }}>
-          Mapa de Puntos de Entrega — Juliaca
-        </span>
+          {locations?.length || 0} ubicaciones
+        </div>
       </div>
 
-      {/* Map */}
-      <div ref={mapRef} style={{ width: '100%', height: 340 }} />
+      {/* Mapa */}
+      <div ref={mapRef} style={{ width: '100%', height: 360 }} />
 
-      {/* Decorative bottom bar */}
+      {/* Footer del mapa */}
       <div style={{
-        background: `linear-gradient(135deg, ${COLORS.navy} 0%, ${COLORS.navyLight} 100%)`,
-        padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        background: 'white',
+        padding: '10px 18px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        borderTop: `1px solid ${COLORS.borderLight}`,
       }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: COLORS.orange, opacity: 0.6 }} />
+        <IconMapPinFilled size={12} color={COLORS.orange} />
         <span style={{
-          fontFamily: '"Cormorant Garamond", serif', fontSize: '0.75rem',
-          color: 'rgba(255,255,255,0.5)', fontStyle: 'italic',
+          fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem',
+          color: COLORS.textMuted, fontWeight: 400,
         }}>
           Toca los marcadores para ver detalles
         </span>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: COLORS.orange, opacity: 0.6 }} />
       </div>
     </div>
   );
@@ -290,7 +337,7 @@ export default function DeliverySection({ deliveryLocations = [], shalomImage = 
             fontFamily: '"Playfair Display", serif', fontSize: '1.3rem',
             fontWeight: 600, color: COLORS.white, marginBottom: 8,
           }}>
-            ¿No eres de Juliaca?
+            No eres de Juliaca?
           </h2>
 
           <motion.div
@@ -308,7 +355,7 @@ export default function DeliverySection({ deliveryLocations = [], shalomImage = 
             fontFamily: '"Outfit", sans-serif', fontSize: '0.9rem',
             color: 'rgba(255,255,255,0.75)', marginBottom: 6, lineHeight: 1.6,
           }}>
-            ¡No te preocupes! Hacemos envíos a todo el Peru
+            No te preocupes! Hacemos envios a todo el Peru
           </p>
           <p style={{
             fontFamily: '"Outfit", sans-serif', fontSize: '1.05rem',
@@ -336,7 +383,7 @@ export default function DeliverySection({ deliveryLocations = [], shalomImage = 
                 boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
               }}
             >
-              <img src={shalomImage} alt="envíos por Shalom"
+              <img src={shalomImage} alt="envios por Shalom"
                 style={{ width: '100%', height: 'auto', display: 'block' }}
               />
             </motion.div>
@@ -366,7 +413,7 @@ export default function DeliverySection({ deliveryLocations = [], shalomImage = 
               color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', marginTop: 24,
             }}
           >
-            Entregas rápidas y seguras a nivel nacional
+            Entregas rapidas y seguras a nivel nacional
           </motion.p>
         </motion.div>
       </section>

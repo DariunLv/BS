@@ -8,7 +8,7 @@ import { notifications } from '@mantine/notifications';
 import {
   IconPlus, IconTrash, IconEdit, IconPhoto, IconLogout, IconCategory,
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
-  IconLock, IconUpload, IconMapPin, IconTruck, IconLink,
+  IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,6 +19,7 @@ import {
   generateId, imageToBase64, changePassword, loadStore, saveStore,
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
+import AccountingPanel from '../components/AccountingPanel';
 
 const LOTTIE_PRESETS = [
   { value: 'https://lottie.host/06a5cb66-9cf7-405e-a96c-6b0c20036d5b/cBH3wxPQH3.lottie', label: 'Colibrí' },
@@ -89,23 +90,25 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
         </div>
       </div>
 
-      <div style={{ padding: '16px 16px 0' }}>
-        <SegmentedControl value={storeType} onChange={setStoreType} fullWidth
-          data={[{ value: 'jewelry', label: 'Joyería' }, { value: 'general', label: 'Tienda General' }]}
-          styles={{ root: { background: COLORS.borderLight }, indicator: { background: COLORS.orange },
-            label: { fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', fontWeight: 500 } }}
-          radius="xl"
-        />
-      </div>
+      {activeTab !== 'accounting' && (
+        <div style={{ padding: '16px 16px 0' }}>
+          <SegmentedControl value={storeType} onChange={setStoreType} fullWidth
+            data={[{ value: 'jewelry', label: 'Joyería' }, { value: 'general', label: 'Tienda General' }]}
+            styles={{ root: { background: COLORS.borderLight }, indicator: { background: COLORS.orange },
+              label: { fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', fontWeight: 500 } }}
+            radius="xl"
+          />
+        </div>
+      )}
 
       <Tabs value={activeTab} onChange={setActiveTab} style={{ padding: '12px 16px' }}>
-        <Tabs.List>
-          <Tabs.Tab value="products" leftSection={<IconDiamond size={16} />}>Productos</Tabs.Tab>
-          <Tabs.Tab value="categories" leftSection={<IconCategory size={16} />}>Categorías</Tabs.Tab>
-          <Tabs.Tab value="delivery" leftSection={<IconMapPin size={16} />}>Entregas</Tabs.Tab>
+        <Tabs.List grow>
+          <Tabs.Tab value="products" leftSection={<IconDiamond size={14} />} style={{ fontSize: '0.75rem' }}>Productos</Tabs.Tab>
+          <Tabs.Tab value="categories" leftSection={<IconCategory size={14} />} style={{ fontSize: '0.75rem' }}>Categorías</Tabs.Tab>
+          <Tabs.Tab value="delivery" leftSection={<IconMapPin size={14} />} style={{ fontSize: '0.75rem' }}>Entregas</Tabs.Tab>
+          <Tabs.Tab value="accounting" leftSection={<IconReportMoney size={14} />} style={{ fontSize: '0.75rem' }}>Cuentas</Tabs.Tab>
         </Tabs.List>
 
-        {/* Products Tab */}
         <Tabs.Panel value="products" pt="md">
           <Button leftSection={<IconPlus size={16} />}
             onClick={() => setProductModal({ open: true, product: null })}
@@ -126,7 +129,6 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           </div>
         </Tabs.Panel>
 
-        {/* Categories Tab */}
         <Tabs.Panel value="categories" pt="md">
           <Button leftSection={<IconPlus size={16} />}
             onClick={() => setCategoryModal({ open: true, category: null })}
@@ -144,7 +146,6 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           </div>
         </Tabs.Panel>
 
-        {/* Delivery Tab */}
         <Tabs.Panel value="delivery" pt="md">
           <Text size="lg" fw={600} mb={4} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>
             Puntos de Entrega
@@ -201,6 +202,10 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
             <FileInput accept="image/*" placeholder="Subir imagen de Shalom" leftSection={<IconUpload size={16} />}
               onChange={handleShalomImageUpload} radius="md" clearable />
           </div>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="accounting" pt="md">
+          <AccountingPanel storeData={storeData} onRefresh={onRefresh} />
         </Tabs.Panel>
       </Tabs>
 
@@ -294,8 +299,9 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
 
 function ProductFormModal({ open, product, categories, storeType, onClose, onSave }) {
   const [form, setForm] = useState({
-    title: '', description: '', material: '', plating: '',
+    title: '', description: '', material: '', plating: '', platingType: '',
     price: '', categoryId: '', images: [], soldOut: false, tallas: [],
+    showWhatsapp: false,
   });
   const [newTalla, setNewTalla] = useState('');
 
@@ -304,12 +310,14 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
       setForm({
         title: product.title || '', description: product.description || '',
         material: product.material || '', plating: product.plating || '',
+        platingType: product.platingType || '',
         price: product.price || '', categoryId: product.categoryId || '',
         images: product.images || [], soldOut: product.soldOut || false,
         tallas: product.tallas || [],
+        showWhatsapp: product.showWhatsapp || false,
       });
     } else {
-      setForm({ title: '', description: '', material: '', plating: '', price: '', categoryId: '', images: [], soldOut: false, tallas: [] });
+      setForm({ title: '', description: '', material: '', plating: '', platingType: '', price: '', categoryId: '', images: [], soldOut: false, tallas: [], showWhatsapp: false });
     }
     setNewTalla('');
   }, [product, open]);
@@ -356,45 +364,42 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
         <Textarea label="Descripción" placeholder="Descripción del producto" value={form.description}
           onChange={(e) => setForm(p => ({ ...p, description: e.currentTarget.value }))} radius="md" rows={3} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <TextInput label="Material" placeholder="Ej: Plata 925" value={form.material}
+          <TextInput label="Material" placeholder="Ej: Acero Inoxidable, Plata 925" value={form.material}
             onChange={(e) => setForm(p => ({ ...p, material: e.currentTarget.value }))} radius="md" />
-          <TextInput label="Chapado" placeholder="Ej: Oro 18k" value={form.plating}
-            onChange={(e) => setForm(p => ({ ...p, plating: e.currentTarget.value }))} radius="md" />
+          <TextInput label="Precio (S/.)" placeholder="0.00" value={form.price}
+            onChange={(e) => setForm(p => ({ ...p, price: e.currentTarget.value }))} radius="md" />
         </div>
-        <TextInput label="Precio (S/.)" placeholder="0.00" value={form.price}
-          onChange={(e) => setForm(p => ({ ...p, price: e.currentTarget.value }))} radius="md" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <Select label="Tipo de acabado" placeholder="Ninguno" value={form.platingType || ''}
+            onChange={(val) => setForm(p => ({ ...p, platingType: val || '' }))}
+            data={[
+              { value: 'Enchapado', label: 'Enchapado' },
+              { value: 'Laminado', label: 'Laminado' },
+              { value: 'Bañado', label: 'Bañado' },
+            ]}
+            radius="md" clearable />
+          {form.platingType && (
+            <TextInput label={`${form.platingType} en`} placeholder="Ej: Oro 18k, Plata" value={form.plating}
+              onChange={(e) => setForm(p => ({ ...p, plating: e.currentTarget.value }))} radius="md" />
+          )}
+        </div>
         <Select label="Categoría" placeholder="Seleccionar" value={form.categoryId}
           onChange={(val) => setForm(p => ({ ...p, categoryId: val || '' }))}
           data={categories.map(c => ({ value: c.id, label: c.name }))} required radius="md" />
 
-        {/* Tallas Disponibles */}
         <div>
           <Text size="sm" fw={500} mb={6}>Tallas Disponibles</Text>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <TextInput
-              placeholder="Ej: S, M, L, 7, 8..."
-              value={newTalla}
-              onChange={(e) => setNewTalla(e.currentTarget.value)}
-              radius="md"
-              style={{ flex: 1 }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addTalla();
-                }
-              }}
-            />
+            <TextInput placeholder="Ej: S, M, L, 7, 8..." value={newTalla}
+              onChange={(e) => setNewTalla(e.currentTarget.value)} radius="md" style={{ flex: 1 }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTalla(); } }} />
             <Button radius="md" style={{ background: COLORS.orange }} onClick={addTalla}>+</Button>
           </div>
           {form.tallas.length > 0 && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {form.tallas.map((t, i) => (
                 <Badge key={i} size="lg" radius="xl" variant="outline" color="orange"
-                  rightSection={
-                    <ActionIcon size="xs" variant="transparent" color="red" onClick={() => removeTalla(i)}>
-                      <IconX size={10} />
-                    </ActionIcon>
-                  }
+                  rightSection={<ActionIcon size="xs" variant="transparent" color="red" onClick={() => removeTalla(i)}><IconX size={10} /></ActionIcon>}
                 >{t}</Badge>
               ))}
             </div>
@@ -404,6 +409,9 @@ function ProductFormModal({ open, product, categories, storeType, onClose, onSav
 
         <Switch label="Agotado" checked={form.soldOut}
           onChange={(e) => setForm(p => ({ ...p, soldOut: e.currentTarget.checked }))} color="orange" />
+        <Switch label="Mostrar boton de WhatsApp" checked={form.showWhatsapp}
+          onChange={(e) => setForm(p => ({ ...p, showWhatsapp: e.currentTarget.checked }))} color="green"
+          description="Permite a los clientes consultar por este producto via WhatsApp" />
         <div>
           <Text size="sm" fw={500} mb={6}>Imágenes (1200x1200 recomendado)</Text>
           {form.images.length > 0 && (
@@ -472,60 +480,30 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <TextInput label="Nombre de la categoría" placeholder="Ej: Aretes" value={form.name}
           onChange={(e) => setForm(p => ({ ...p, name: e.currentTarget.value }))} required radius="md" />
-
-        {/* Lottie Sticker Section */}
         <div>
           <Text size="sm" fw={500} mb={6}>Sticker Lottie (animación)</Text>
-
-          <SegmentedControl
-            value={lottieMode} onChange={(val) => { setLottieMode(val); if (val === 'preset') setForm(p => ({ ...p, lottieUrl: '' })); }}
+          <SegmentedControl value={lottieMode}
+            onChange={(val) => { setLottieMode(val); if (val === 'preset') setForm(p => ({ ...p, lottieUrl: '' })); }}
             fullWidth size="xs" radius="xl" mb={10}
-            data={[
-              { value: 'preset', label: 'Elegir de lista' },
-              { value: 'link', label: 'Pegar link' },
-            ]}
-            styles={{
-              root: { background: COLORS.borderLight },
-              indicator: { background: COLORS.orange },
-              label: { fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem' },
-            }}
-          />
-
+            data={[{ value: 'preset', label: 'Elegir de lista' }, { value: 'link', label: 'Pegar link' }]}
+            styles={{ root: { background: COLORS.borderLight }, indicator: { background: COLORS.orange },
+              label: { fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem' } }} />
           {lottieMode === 'preset' ? (
-            <Select
-              placeholder="Seleccionar animación"
-              value={form.lottieUrl}
+            <Select placeholder="Seleccionar animación" value={form.lottieUrl}
               onChange={(val) => setForm(p => ({ ...p, lottieUrl: val || '' }))}
-              data={LOTTIE_PRESETS}
-              clearable radius="md"
-            />
+              data={LOTTIE_PRESETS} clearable radius="md" />
           ) : (
-            <TextInput
-              placeholder="https://lottie.host/xxxxx/xxxxx.lottie"
-              value={form.lottieUrl}
+            <TextInput placeholder="https://lottie.host/xxxxx/xxxxx.lottie" value={form.lottieUrl}
               onChange={(e) => setForm(p => ({ ...p, lottieUrl: e.currentTarget.value }))}
-              leftSection={<IconLink size={16} />}
-              radius="md"
-              description="Pega el link de LottieFiles aquí"
-            />
+              leftSection={<IconLink size={16} />} radius="md" description="Pega el link de LottieFiles aquí" />
           )}
-
-          {/* Preview */}
           {form.lottieUrl && (
-            <div style={{
-              textAlign: 'center', marginTop: 12, padding: 16,
-              background: COLORS.offWhite, borderRadius: 12,
-              border: `1px solid ${COLORS.borderLight}`,
-            }}>
+            <div style={{ textAlign: 'center', marginTop: 12, padding: 16, background: COLORS.offWhite, borderRadius: 12, border: `1px solid ${COLORS.borderLight}` }}>
               <dotlottie-wc src={form.lottieUrl} style={{ width: '70px', height: '70px', margin: '0 auto' }} autoplay loop />
-              <Text size="xs" c="dimmed" mt={6} style={{ fontFamily: '"Outfit", sans-serif' }}>
-                Vista previa del sticker
-              </Text>
+              <Text size="xs" c="dimmed" mt={6} style={{ fontFamily: '"Outfit", sans-serif' }}>Vista previa del sticker</Text>
             </div>
           )}
         </div>
-
-        {/* Category Image */}
         <div>
           <Text size="sm" fw={500} mb={6}>Imagen de categoría</Text>
           {form.image && (
@@ -539,7 +517,6 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
           <FileInput accept="image/*" placeholder="Seleccionar imagen" leftSection={<IconUpload size={16} />}
             onChange={handleImageAdd} radius="md" clearable />
         </div>
-
         <Button onClick={handleSubmit} radius="xl" mt="md"
           style={{ background: COLORS.navy, fontFamily: '"Outfit", sans-serif' }}>
           {category ? 'Guardar Cambios' : 'Agregar Categoría'}
