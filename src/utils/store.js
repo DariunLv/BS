@@ -16,7 +16,7 @@ const DEFAULT_DELIVERY_LOCATIONS = [
   { id: 'loc2', name: 'Real Plaza', lat: -15.4985, lng: -70.1234 },
   { id: 'loc3', name: 'Plaza Bolognesi', lat: -15.4977, lng: -70.1311 },
   { id: 'loc4', name: 'Plaza Zarumilla', lat: -15.4945, lng: -70.1290 },
-  { id: 'loc5', name: 'Centro Comercial N°2', lat: -15.5000, lng: -70.1305 },
+  { id: 'loc5', name: 'Centro Comercial N2', lat: -15.5000, lng: -70.1305 },
   { id: 'loc6', name: 'Plaza de Armas', lat: -15.4963, lng: -70.1312 },
 ];
 
@@ -35,8 +35,8 @@ const DEFAULT_DATA = {
 let cacheData = null;
 
 export function loadStore() {
-  if (cacheData) return cacheData;
-  return DEFAULT_DATA;
+  if (cacheData) return JSON.parse(JSON.stringify(cacheData));
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 
 export function saveStore(data) {
@@ -52,6 +52,7 @@ export function setCacheData(data) {
   cacheData = data;
 }
 
+/* ====== CATEGORIAS ====== */
 export function getCategories(storeType = 'jewelry') {
   const data = loadStore();
   return data.categories.filter(c => c.storeType === storeType).sort((a, b) => a.order - b.order);
@@ -89,6 +90,7 @@ export function deleteCategory(id) {
   return data;
 }
 
+/* ====== PRODUCTOS ====== */
 export function getProducts(categoryId) {
   const data = loadStore();
   if (categoryId) return data.products.filter(p => p.categoryId === categoryId);
@@ -140,6 +142,7 @@ export function toggleSoldOut(id) {
   return data;
 }
 
+/* ====== DELIVERY LOCATIONS ====== */
 export function addDeliveryLocation(location) {
   const data = loadStore();
   data.deliveryLocations.push(location);
@@ -171,7 +174,7 @@ export function updateShalomImage(imageBase64) {
   return data;
 }
 
-/* ========= VENTAS (SALES) ========= */
+/* ====== VENTAS ====== */
 export function getSales() {
   const data = loadStore();
   return data.sales || [];
@@ -204,16 +207,16 @@ export function deleteSale(id) {
   return data;
 }
 
-/* ========= INVERSIONES (INVESTMENTS) ========= */
+/* ====== INVERSIONES / GASTOS ====== */
 export function getInvestments() {
   const data = loadStore();
   return data.investments || [];
 }
 
-export function addInvestment(investment) {
+export function addInvestment(inv) {
   const data = loadStore();
   if (!data.investments) data.investments = [];
-  data.investments.push(investment);
+  data.investments.push(inv);
   saveStore(data);
   return data;
 }
@@ -237,7 +240,7 @@ export function deleteInvestment(id) {
   return data;
 }
 
-/* ========= ACCIONISTAS (SHAREHOLDERS) ========= */
+/* ====== ACCIONISTAS ====== */
 export function getShareholders() {
   const data = loadStore();
   return data.shareholders || [];
@@ -270,7 +273,7 @@ export function deleteShareholder(id) {
   return data;
 }
 
-/* ========= VENTAS PENDIENTES ========= */
+/* ====== VENTAS PENDIENTES ====== */
 export function getPendingSales() {
   const data = loadStore();
   return data.pendingSales || [];
@@ -315,7 +318,7 @@ export function completePendingSale(id) {
   return data;
 }
 
-/* ========= UTILIDADES ========= */
+/* ====== AUTH & UTILS ====== */
 export function verifyPassword(pw) {
   const data = loadStore();
   return pw === data.adminPassword;

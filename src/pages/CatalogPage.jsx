@@ -276,7 +276,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
               fontFamily: '"Playfair Display", serif', fontSize: '1.35rem',
               fontWeight: 600, color: COLORS.white, marginBottom: 8,
             }}>
-              Nuestra Galeria
+              Nuestra galería
             </motion.h2>
             <motion.div initial={{ scaleX: 0 }} whileInView={{ scaleX: 1 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.2 }}>
               <div className="elegant-divider" style={{ background: 'linear-gradient(90deg, #f76707, #d4a574)', marginBottom: 8 }} />

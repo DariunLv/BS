@@ -109,7 +109,7 @@ export default function ProductModal({ product, open, onClose }) {
           </div>
         </div>
 
-        {/* ====== GALERIA DE IMAGENES ====== */}
+        {/* ====== galería DE IMAGENES ====== */}
         <div style={{ position: 'relative', background: COLORS.offWhite }}
           onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           {images.length > 0 ? (
@@ -368,7 +368,7 @@ export default function ProductModal({ product, open, onClose }) {
             </div>
           )}
 
-          {/* ====== DESCRIPCION ====== */}
+          {/* ====== descripción ====== */}
           {product.description && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -382,7 +382,7 @@ export default function ProductModal({ product, open, onClose }) {
                 <span style={{
                   fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem',
                   color: COLORS.navy, fontWeight: 600,
-                }}>Descripcion</span>
+                }}>descripción</span>
               </div>
               <p style={{
                 fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem',

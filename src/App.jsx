@@ -18,7 +18,10 @@ import { loadStore, setCacheData } from './utils/store';
 import { loadFromFirebase } from './utils/firebase';
 
 export default function App() {
-  const [isAdmin, setIsAdmin] = useState(false);
+  // Persistir sesion admin en sessionStorage para que sobreviva refresh
+  const [isAdmin, setIsAdmin] = useState(() => {
+    try { return sessionStorage.getItem('benito_admin') === 'true'; } catch { return false; }
+  });
   const [showLogin, setShowLogin] = useState(false);
   const [storeData, setStoreData] = useState(() => loadStore());
   const [currentStore, setCurrentStore] = useState('jewelry');
@@ -28,7 +31,8 @@ export default function App() {
   const location = useLocation();
 
   const refreshData = useCallback(() => {
-    setStoreData(loadStore());
+    const fresh = loadStore();
+    setStoreData(fresh);
   }, []);
 
   // Cargar datos de Firebase al iniciar
@@ -36,7 +40,7 @@ export default function App() {
     loadFromFirebase().then((firebaseData) => {
       if (firebaseData) {
         setCacheData(firebaseData);
-        setStoreData(firebaseData);
+        setStoreData(loadStore());
       }
     });
   }, []);
@@ -46,6 +50,18 @@ export default function App() {
     refreshData();
     window.scrollTo(0, 0);
   }, [location.pathname, refreshData]);
+
+  // Guardar estado admin en sessionStorage
+  useEffect(() => {
+    try { sessionStorage.setItem('benito_admin', isAdmin ? 'true' : 'false'); } catch {}
+  }, [isAdmin]);
+
+  // Si estamos en /admin pero no logueados y no hay sesion guardada, redirigir
+  useEffect(() => {
+    if (location.pathname.startsWith('/admin') && !isAdmin) {
+      navigate('/');
+    }
+  }, [location.pathname, isAdmin, navigate]);
 
   const handleLogoClick = useCallback(() => {
     clickCountRef.current += 1;

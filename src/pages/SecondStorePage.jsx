@@ -99,7 +99,7 @@ export default function SecondStorePage({ storeData, onNavigateCategory, onBack 
         }}>
           <div style={{ padding: '0 16px', marginBottom: 28, textAlign: 'center' }}>
             <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '1.3rem', fontWeight: 600, color: COLORS.white, marginBottom: 8 }}>
-              Galeria
+              galería
             </h2>
             <div className="elegant-divider" style={{ background: 'linear-gradient(90deg, #f76707, #d4a574)' }} />
           </div>
