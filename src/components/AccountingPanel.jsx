@@ -546,6 +546,7 @@ function InvestmentListItem({ investment, onEdit, onDelete }) {
             <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
               <Text size="xs" c="dimmed" style={{ fontSize: '0.62rem' }}>{fechaStr}</Text>
               {investment.categoria && <Badge size="xs" variant="light" color="red" radius="xl" style={{ fontSize: '0.55rem' }}>{investment.categoria}</Badge>}
+              {investment.tipoBien && <Badge size="xs" variant="light" color={investment.tipoBien === 'acumulado' ? 'teal' : 'grape'} radius="xl" style={{ fontSize: '0.52rem', textTransform: 'none' }}>{investment.tipoBien === 'acumulado' ? 'Acumulado' : 'Unico'}</Badge>}
               {fuente && <Badge size="xs" variant="dot" color={fuenteColor} radius="xl" style={{ fontSize: '0.55rem', textTransform: 'none' }}>{fuente === 'Accionista' ? 'Fondo accionista' : fuente}</Badge>}
             </div>
             {investment.fuenteDinero === 'Ambos' && (
@@ -1344,7 +1345,7 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
 function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAccionista, onClose, onSave }) {
   const [form, setForm] = useState({
     descripcion: '', fecha: '', monto: '', categoria: '', nota: '',
-    fuenteDinero: '', splitYefer: '', splitFrank: '',
+    fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '',
   });
 
   React.useEffect(() => {
@@ -1354,10 +1355,11 @@ function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAcc
         monto: investment.monto || '', categoria: investment.categoria || '',
         nota: investment.nota || '', fuenteDinero: investment.fuenteDinero || investment.socio || '',
         splitYefer: investment.splitYefer || '', splitFrank: investment.splitFrank || '',
+        tipoBien: investment.tipoBien || '',
       });
     } else {
       const today = new Date().toISOString().split('T')[0];
-      setForm({ descripcion: '', fecha: today, monto: '', categoria: '', nota: '', fuenteDinero: '', splitYefer: '', splitFrank: '' });
+      setForm({ descripcion: '', fecha: today, monto: '', categoria: '', nota: '', fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '' });
     }
   }, [investment, open]);
 
@@ -1436,6 +1438,14 @@ function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAcc
           onChange={(v) => setForm(p => ({ ...p, categoria: v || '' }))}
           data={CATEGORIAS_INVERSION.map(c => ({ value: c, label: c }))}
           radius="md" clearable leftSection={<IconBox size={16} />} />
+
+        <Select label="Tipo de bien" placeholder="Seleccionar tipo" value={form.tipoBien}
+          onChange={(v) => setForm(p => ({ ...p, tipoBien: v || '' }))}
+          data={[
+            { value: 'acumulado', label: 'Bien acumulado (cajas, flores, bolsas, etc.)' },
+            { value: 'unico', label: 'Bien de un solo uso (anillo, tablet, etc.)' },
+          ]}
+          radius="md" clearable leftSection={<IconPackage size={16} />} />
 
         {/* FUENTE DEL DINERO */}
         <Select label="De donde sale el dinero" placeholder="Quien paga" value={form.fuenteDinero}
