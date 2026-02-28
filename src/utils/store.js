@@ -426,7 +426,7 @@ export function imageToBase64(file) {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX = 600;
+        const MAX = 1200;
         let w = img.width;
         let h = img.height;
         if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
@@ -434,7 +434,7 @@ export function imageToBase64(file) {
         canvas.width = w;
         canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
       };
       img.onerror = reject;
       img.src = reader.result;
