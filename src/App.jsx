@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import Header from './components/Header';
 import CatalogPage from './pages/CatalogPage';
@@ -10,12 +10,13 @@ import SecondStoreCategoryPage from './pages/SecondStoreCategoryPage';
 import AdminPanel from './pages/AdminPanel';
 import AdminLogin from './components/AdminLogin';
 import ClickSpark from './components/ClickSpark';
-import Particles from './components/Particles';
 import FloatingHearts from './components/FloatingHearts';
 import SparkleTrail from './components/SparkleTrail';
 import BottomNav from './components/BottomNav';
+import PageTransition from './components/PageTransition';
 import { loadStore, setCacheData } from './utils/store';
 import { loadFromFirebase } from './utils/firebase';
+import AnimatedBackground from './components/AnimatedBackground';
 
 export default function App() {
   // Persistir sesion admin en sessionStorage para que sobreviva refresh
@@ -24,7 +25,9 @@ export default function App() {
   });
   const [showLogin, setShowLogin] = useState(false);
   const [storeData, setStoreData] = useState(() => loadStore());
+  const [isLoading, setIsLoading] = useState(true);
   const [currentStore, setCurrentStore] = useState('jewelry');
+  const [navDirection, setNavDirection] = useState('fade');
   const clickCountRef = useRef(0);
   const clickTimerRef = useRef(null);
   const navigate = useNavigate();
@@ -42,14 +45,14 @@ export default function App() {
         setCacheData(firebaseData);
         setStoreData(loadStore());
       }
-    });
+      setIsLoading(false);
+    }).catch(() => setIsLoading(false));
   }, []);
 
-  // Scroll arriba y refrescar en cada cambio de ruta
+  // Scroll arriba en cada cambio de ruta
   useEffect(() => {
-    refreshData();
     window.scrollTo(0, 0);
-  }, [location.pathname, refreshData]);
+  }, [location.pathname]);
 
   // Guardar estado admin en sessionStorage
   useEffect(() => {
@@ -97,15 +100,8 @@ export default function App() {
     <>
       {!isAdminRoute && (
         <>
-          <Particles
-            particleCount={50}
-            colors={['#f76707', '#1a2744', '#d4a574', '#ff922b', '#2c4a80']}
-            speed={0.25}
-            opacity={0.07}
-            minSize={1}
-            maxSize={2.5}
-            connectDistance={120}
-          />
+          {/* Fondo animado con orbes de luz (reemplaza canvas de Particles) */}
+          <AnimatedBackground />
           <FloatingHearts count={10} opacity={0.04} />
           <SparkleTrail color="#f76707" size={3.5} density={0.25} />
         </>
@@ -114,38 +110,54 @@ export default function App() {
       <ClickSpark sparkColor="#f76707" sparkSize={12} sparkRadius={22} sparkCount={10} duration={500}>
         <div style={{ minHeight: '100vh', position: 'relative', zIndex: 1 }}>
           {!isAdminRoute && (
-            <Header onLogoClick={handleLogoClick} currentStore={currentStore} onStoreChange={setCurrentStore} />
+            <Header onLogoClick={handleLogoClick} currentStore={currentStore} onStoreChange={setCurrentStore} onBack={() => setNavDirection('slideRight')} />
           )}
 
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={
-                <CatalogPage storeData={storeData}
-                  onNavigateCategory={(catId) => navigate(`/categoria/${catId}`)}
-                  onNavigateSecondStore={() => navigate('/tienda-general')}
-                />
+                <PageTransition direction={navDirection}>
+                  <CatalogPage storeData={storeData} isLoading={isLoading}
+                    onNavigateCategory={(catId) => { setNavDirection('slideLeft'); navigate(`/categoria/${catId}`); }}
+                    onNavigateSecondStore={() => { setNavDirection('slideLeft'); navigate('/tienda-general'); }}
+                  />
+                </PageTransition>
               } />
-              <Route path="/categoria/:categoryId" element={<CategoryPage storeData={storeData} />} />
+              <Route path="/categoria/:categoryId" element={
+                <PageTransition direction={navDirection}>
+                  <CategoryPage storeData={storeData} isLoading={isLoading} />
+                </PageTransition>
+              } />
               <Route path="/tienda-general" element={
-                <SecondStorePage storeData={storeData}
-                  onNavigateCategory={(catId) => navigate(`/tienda-general/categoria/${catId}`)}
-                  onBack={() => navigate('/')}
-                />
+                <PageTransition direction={navDirection}>
+                  <SecondStorePage storeData={storeData}
+                    onNavigateCategory={(catId) => { setNavDirection('slideLeft'); navigate(`/tienda-general/categoria/${catId}`); }}
+                    onBack={() => { setNavDirection('slideRight'); navigate('/'); }}
+                  />
+                </PageTransition>
               } />
-              <Route path="/tienda-general/categoria/:categoryId"
-                element={<SecondStoreCategoryPage storeData={storeData} onBack={() => navigate('/tienda-general')} />}
+              <Route path="/tienda-general/categoria/:categoryId" element={
+                <PageTransition direction={navDirection}>
+                  <SecondStoreCategoryPage storeData={storeData} onBack={() => { setNavDirection('slideRight'); navigate('/tienda-general'); }} />
+                </PageTransition>
+              } />
+              <Route path="/admin/*"
+                element={
+                  isAdmin
+                    ? <AdminPanel storeData={storeData} onRefresh={refreshData} onLogout={handleLogout} />
+                    : <Navigate to="/" replace />
+                }
               />
-              {isAdmin && (
-                <Route path="/admin/*"
-                  element={<AdminPanel storeData={storeData} onRefresh={refreshData} onLogout={handleLogout} />}
-                />
-              )}
             </Routes>
           </AnimatePresence>
 
           {!isAdminRoute && (
             <BottomNav currentStore={currentStore}
-              onStoreChange={(store) => { setCurrentStore(store); navigate(store === 'general' ? '/tienda-general' : '/'); }}
+              onStoreChange={(store) => {
+                setNavDirection('fade');
+                setCurrentStore(store);
+                navigate(store === 'general' ? '/tienda-general' : '/');
+              }}
             />
           )}
 

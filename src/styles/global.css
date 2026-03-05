@@ -26,7 +26,7 @@ html {
 
 body {
   font-family: 'Outfit', sans-serif;
-  background-color: var(--white);
+  background-color: transparent;
   color: var(--text-dark);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -87,17 +87,33 @@ h1, h2, h3, h4, h5, h6 {
   50% { border-color: rgba(247, 103, 7, 0.35); }
 }
 
-@keyframes subtle-rotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes text-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.product-title-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--navy) 0%,
+    var(--navy) 35%,
+    var(--gold) 50%,
+    var(--navy) 65%,
+    var(--navy) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-shimmer 1.8s linear infinite;
 }
 
 /* ========= SOLD OUT ========= */
 .sold-out-overlay {
   position: absolute; inset: 0;
-  background: rgba(26, 39, 68, 0.65);
+  background: rgba(26, 39, 68, 0.30);
   display: flex; align-items: center; justify-content: center;
-  z-index: 10; backdrop-filter: blur(3px); border-radius: inherit;
+  z-index: 10; backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); border-radius: inherit;
 }
 .sold-out-badge {
   background: var(--navy); color: var(--white);

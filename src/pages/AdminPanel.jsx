@@ -9,14 +9,16 @@ import {
   IconPlus, IconTrash, IconEdit, IconPhoto, IconLogout, IconCategory,
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
+  IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   addProduct, updateProduct, deleteProduct, toggleSoldOut,
   addCategory, updateCategory, deleteCategory,
   addDeliveryLocation, updateDeliveryLocation, deleteDeliveryLocation,
-  updateShalomImage,
-  generateId, imageToBase64, changePassword, loadStore, saveStore,
+  updateShalomImage, updateWhatsappNumber, getWhatsappNumber,
+  generateId, uploadImage, changePassword, loadStore, saveStore,
+  reorderProducts, reorderCategories,
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
 import AccountingPanel from '../components/AccountingPanel';
@@ -53,11 +55,20 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
   const deliveryLocations = storeData?.deliveryLocations || [];
   const shalomImage = storeData?.shalomImage || '';
+  const [whatsappInput, setWhatsappInput] = useState(() => getWhatsappNumber());
+
+  const handleSaveWhatsapp = () => {
+    const clean = whatsappInput.replace(/\D/g, '');
+    if (clean.length < 8) { notifications.show({ title: 'Error', message: 'Número inválido', color: 'red' }); return; }
+    updateWhatsappNumber(clean);
+    onRefresh();
+    notifications.show({ title: 'Guardado', message: 'Número de WhatsApp actualizado', color: 'green' });
+  };
 
   const handleShalomImageUpload = async (file) => {
     if (!file) return;
     try {
-      const base64 = await imageToBase64(file);
+      const base64 = await uploadImage(file);
       updateShalomImage(base64);
       onRefresh();
       notifications.show({ title: 'Listo', message: 'Imagen de Shalom actualizada', color: 'green' });
@@ -115,18 +126,103 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
             radius="xl" style={{ background: COLORS.orange, marginBottom: 16, fontFamily: '"Outfit", sans-serif' }}>
             Agregar Producto
           </Button>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <AnimatePresence>
-              {products.map((product) => (
-                <ProductListItem key={product.id} product={product} categories={categories}
-                  onEdit={() => setProductModal({ open: true, product })}
-                  onDelete={() => { deleteProduct(product.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Producto eliminado', color: 'red' }); }}
-                  onToggleSoldOut={() => { toggleSoldOut(product.id); onRefresh(); }}
-                />
-              ))}
-            </AnimatePresence>
-            {products.length === 0 && <Text ta="center" c="dimmed" py="xl" style={{ fontFamily: '"Outfit", sans-serif' }}>No hay productos. Agrega el primero.</Text>}
-          </div>
+
+          {/* Productos agrupados por categoría con reordenamiento */}
+          {categories.map(cat => {
+            const catProducts = products
+              .filter(p => p.categoryId === cat.id)
+              .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+            if (catProducts.length === 0) return null;
+            return (
+              <div key={cat.id} style={{ marginBottom: 20 }}>
+                {/* Header de categoría */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', marginBottom: 8,
+                  background: `linear-gradient(90deg, rgba(247,103,7,0.08), transparent)`,
+                  borderLeft: `3px solid ${COLORS.orange}`,
+                  borderRadius: '0 8px 8px 0',
+                }}>
+                  <IconArrowsSort size={13} color={COLORS.orange} />
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem', fontWeight: 700, color: COLORS.navy }}>
+                    {cat.name}
+                  </span>
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted }}>
+                    ({catProducts.length} producto{catProducts.length !== 1 ? 's' : ''})
+                  </span>
+                </div>
+
+                <AnimatePresence>
+                  {catProducts.map((product, idx) => (
+                    <motion.div
+                      key={product.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}
+                    >
+                      {/* Botones de orden */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          disabled={idx === 0}
+                          onClick={() => { reorderProducts(cat.id, idx, idx - 1); onRefresh(); }}
+                          style={{
+                            width: 26, height: 26, borderRadius: 6, border: 'none', cursor: idx === 0 ? 'default' : 'pointer',
+                            background: idx === 0 ? COLORS.borderLight : COLORS.offWhite,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: idx === 0 ? COLORS.borderLight : COLORS.navy, padding: 0,
+                          }}
+                        >
+                          <IconArrowUp size={13} />
+                        </motion.button>
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          disabled={idx === catProducts.length - 1}
+                          onClick={() => { reorderProducts(cat.id, idx, idx + 1); onRefresh(); }}
+                          style={{
+                            width: 26, height: 26, borderRadius: 6, border: 'none', cursor: idx === catProducts.length - 1 ? 'default' : 'pointer',
+                            background: idx === catProducts.length - 1 ? COLORS.borderLight : COLORS.offWhite,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: idx === catProducts.length - 1 ? COLORS.borderLight : COLORS.navy, padding: 0,
+                          }}
+                        >
+                          <IconArrowDown size={13} />
+                        </motion.button>
+                      </div>
+
+                      {/* Número de posición */}
+                      <div style={{
+                        width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                        background: COLORS.orange, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'white', fontFamily: '"Outfit", sans-serif' }}>
+                          {idx + 1}
+                        </span>
+                      </div>
+
+                      {/* Card del producto */}
+                      <div style={{ flex: 1 }}>
+                        <ProductListItem product={product} categories={categories}
+                          onEdit={() => setProductModal({ open: true, product })}
+                          onDelete={() => { deleteProduct(product.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Producto eliminado', color: 'red' }); }}
+                          onToggleSoldOut={() => { toggleSoldOut(product.id); onRefresh(); }}
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            );
+          })}
+
+          {products.length === 0 && (
+            <Text ta="center" c="dimmed" py="xl" style={{ fontFamily: '"Outfit", sans-serif' }}>
+              No hay productos. Agrega el primero.
+            </Text>
+          )}
         </Tabs.Panel>
 
         <Tabs.Panel value="categories" pt="md">
@@ -135,15 +231,101 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
             radius="xl" style={{ background: COLORS.orange, marginBottom: 16, fontFamily: '"Outfit", sans-serif' }}>
             Agregar Categoría
           </Button>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {categories.map((cat) => (
-              <CategoryListItem key={cat.id} category={cat}
-                productCount={(storeData?.products || []).filter(p => p.categoryId === cat.id).length}
-                onEdit={() => setCategoryModal({ open: true, category: cat })}
-                onDelete={() => { deleteCategory(cat.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Categoría eliminada', color: 'red' }); }}
-              />
-            ))}
-          </div>
+
+          {[
+            { type: 'jewelry', label: 'Joyería' },
+            { type: 'general', label: 'Tienda General' },
+          ].map(({ type, label }) => {
+            const typeCats = categories
+              .filter(c => c.storeType === type)
+              .sort((a, b) => a.order - b.order);
+            if (typeCats.length === 0) return null;
+            return (
+              <div key={type} style={{ marginBottom: 20 }}>
+                {/* Header de grupo */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '6px 10px', marginBottom: 8,
+                  background: `linear-gradient(90deg, rgba(26,39,68,0.07), transparent)`,
+                  borderLeft: `3px solid ${COLORS.navy}`,
+                  borderRadius: '0 8px 8px 0',
+                }}>
+                  <IconArrowsSort size={13} color={COLORS.navy} />
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem', fontWeight: 700, color: COLORS.navy }}>
+                    {label}
+                  </span>
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted }}>
+                    ({typeCats.length} categoría{typeCats.length !== 1 ? 's' : ''})
+                  </span>
+                </div>
+
+                <AnimatePresence>
+                  {typeCats.map((cat, idx) => (
+                    <motion.div
+                      key={cat.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}
+                    >
+                      {/* Botones ↑↓ */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          disabled={idx === 0}
+                          onClick={() => { reorderCategories(type, idx, idx - 1); onRefresh(); }}
+                          style={{
+                            width: 26, height: 26, borderRadius: 6, border: 'none',
+                            cursor: idx === 0 ? 'default' : 'pointer',
+                            background: idx === 0 ? COLORS.borderLight : COLORS.offWhite,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: idx === 0 ? COLORS.borderLight : COLORS.navy, padding: 0,
+                          }}
+                        >
+                          <IconArrowUp size={13} />
+                        </motion.button>
+                        <motion.button
+                          whileTap={{ scale: 0.85 }}
+                          disabled={idx === typeCats.length - 1}
+                          onClick={() => { reorderCategories(type, idx, idx + 1); onRefresh(); }}
+                          style={{
+                            width: 26, height: 26, borderRadius: 6, border: 'none',
+                            cursor: idx === typeCats.length - 1 ? 'default' : 'pointer',
+                            background: idx === typeCats.length - 1 ? COLORS.borderLight : COLORS.offWhite,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: idx === typeCats.length - 1 ? COLORS.borderLight : COLORS.navy, padding: 0,
+                          }}
+                        >
+                          <IconArrowDown size={13} />
+                        </motion.button>
+                      </div>
+
+                      {/* Número de posición */}
+                      <div style={{
+                        width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                        background: COLORS.navy, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'white', fontFamily: '"Outfit", sans-serif' }}>
+                          {idx + 1}
+                        </span>
+                      </div>
+
+                      {/* Card de categoría */}
+                      <div style={{ flex: 1 }}>
+                        <CategoryListItem category={cat}
+                          productCount={(storeData?.products || []).filter(p => p.categoryId === cat.id).length}
+                          onEdit={() => setCategoryModal({ open: true, category: cat })}
+                          onDelete={() => { deleteCategory(cat.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Categoría eliminada', color: 'red' }); }}
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </Tabs.Panel>
 
         <Tabs.Panel value="delivery" pt="md">
@@ -202,6 +384,37 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
             <FileInput accept="image/*" placeholder="Subir imagen de Shalom" leftSection={<IconUpload size={16} />}
               onChange={handleShalomImageUpload} radius="md" clearable />
           </div>
+
+          {/* ====== WHATSAPP CONFIG ====== */}
+          <div style={{ borderTop: `1px solid ${COLORS.borderLight}`, paddingTop: 24, marginTop: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <IconBrandWhatsapp size={20} color="#25D366" />
+              <Text size="lg" fw={600} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>
+                Número de WhatsApp
+              </Text>
+            </div>
+            <Text size="sm" c="dimmed" mb={12} style={{ fontFamily: '"Outfit", sans-serif' }}>
+              Este número se usa en el botón "Consultar por WhatsApp" de los productos
+            </Text>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <TextInput
+                placeholder="Ej: 51970824366"
+                value={whatsappInput}
+                onChange={(e) => { const v = e.currentTarget.value; setWhatsappInput(v); }}
+                radius="md"
+                style={{ flex: 1 }}
+                leftSection={<IconBrandWhatsapp size={16} color="#25D366" />}
+                description="Incluye el código de país (Perú = 51)"
+              />
+              <Button
+                onClick={handleSaveWhatsapp}
+                radius="md"
+                style={{ background: '#25D366', alignSelf: 'flex-start', marginTop: 1 }}
+              >
+                Guardar
+              </Button>
+            </div>
+          </div>
         </Tabs.Panel>
 
         <Tabs.Panel value="accounting" pt="md">
@@ -211,6 +424,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
       <ProductFormModal open={productModal.open} product={productModal.product}
         categories={categories} storeType={storeType}
+        allProducts={storeData?.products || []}
         onClose={() => setProductModal({ open: false, product: null })}
         onSave={() => { onRefresh(); setProductModal({ open: false, product: null }); }} />
       <CategoryFormModal open={categoryModal.open} category={categoryModal.category}
@@ -250,8 +464,19 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
             <Text size="xs" c="dimmed" lineClamp={1}>{cat?.name || 'Sin categoría'}</Text>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Text size="sm" fw={600} style={{ color: COLORS.orange }}>S/. {product.price || '0.00'}</Text>
-              {product.tallas && product.tallas.length > 0 && (
-                <Text size="xs" c="dimmed">· {product.tallas.length} tallas</Text>
+              {(product.tallasVaron?.length > 0 || product.tallasDama?.length > 0) && (
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {product.tallasVaron?.length > 0 && (
+                    <Badge size="xs" radius="xl" style={{ background: '#2c4a80', color: 'white', fontFamily: '"Outfit", sans-serif' }}>
+                      V: {product.tallasVaron.length}
+                    </Badge>
+                  )}
+                  {product.tallasDama?.length > 0 && (
+                    <Badge size="xs" radius="xl" style={{ background: '#c2255c', color: 'white', fontFamily: '"Outfit", sans-serif' }}>
+                      D: {product.tallasDama.length}
+                    </Badge>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -297,146 +522,342 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
   );
 }
 
-function ProductFormModal({ open, product, categories, storeType, onClose, onSave }) {
-  const [form, setForm] = useState({
+function ProductFormModal({ open, product, categories, storeType, allProducts, onClose, onSave }) {
+  const EMPTY_FORM = {
     title: '', description: '', material: '', plating: '', platingType: '',
-    price: '', categoryId: '', images: [], soldOut: false, tallas: [],
+    price: '', categoryId: '', images: [], soldOut: false,
+    tallasVaron: [], tallasDama: [],
+    contenidos: [], modelosPrecio: [],
     showWhatsapp: false,
-  });
-  const [newTalla, setNewTalla] = useState('');
+  };
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [step, setStep] = useState(1); // 1=elegir categoría, 2=rellenar datos
+  const [newTallaVaron, setNewTallaVaron] = useState('');
+  const [newTallaDama, setNewTallaDama] = useState('');
+  const [newContenidoNombre, setNewContenidoNombre] = useState('');
+  const [uploadingContenidoImg, setUploadingContenidoImg] = useState(null);
+  const [newModeloAnilloId, setNewModeloAnilloId] = useState('');
+  const [newModeloPrecio, setNewModeloPrecio] = useState('');
 
   React.useEffect(() => {
     if (product) {
+      const legacyTallas = product.tallas || [];
+      const hasSplit = (product.tallasVaron?.length > 0) || (product.tallasDama?.length > 0);
       setForm({
         title: product.title || '', description: product.description || '',
         material: product.material || '', plating: product.plating || '',
         platingType: product.platingType || '',
         price: product.price || '', categoryId: product.categoryId || '',
         images: product.images || [], soldOut: product.soldOut || false,
-        tallas: product.tallas || [],
+        tallasVaron: hasSplit ? (product.tallasVaron || []) : legacyTallas,
+        tallasDama: product.tallasDama || [],
+        contenidos: product.contenidos || [],
+        modelosPrecio: product.modelosPrecio || [],
         showWhatsapp: product.showWhatsapp || false,
       });
+      setStep(2); // editando: ir directo al formulario
     } else {
-      setForm({ title: '', description: '', material: '', plating: '', platingType: '', price: '', categoryId: '', images: [], soldOut: false, tallas: [], showWhatsapp: false });
+      setForm(EMPTY_FORM);
+      setStep(1); // nuevo: elegir categoría primero
     }
-    setNewTalla('');
+    setNewTallaVaron(''); setNewTallaDama('');
+    setNewContenidoNombre(''); setNewModeloAnilloId(''); setNewModeloPrecio('');
   }, [product, open]);
 
+  const [uploadingImage, setUploadingImage] = useState(false);
   const handleImageAdd = async (file) => {
     if (!file) return;
-    try { const base64 = await imageToBase64(file); setForm(p => ({ ...p, images: [...p.images, base64] })); }
-    catch { notifications.show({ title: 'Error', message: 'Error al cargar imagen', color: 'red' }); }
+    try {
+      setUploadingImage(true);
+      const base64 = await uploadImage(file);
+      setForm(p => ({ ...p, images: [...p.images, base64] }));
+    } catch { notifications.show({ title: 'Error', message: 'Error al cargar imagen', color: 'red' }); }
+    finally { setUploadingImage(false); }
   };
-
   const removeImage = (idx) => setForm(p => ({ ...p, images: p.images.filter((_, i) => i !== idx) }));
 
-  const addTalla = () => {
-    if (newTalla.trim()) {
-      setForm(p => ({ ...p, tallas: [...p.tallas, newTalla.trim()] }));
-      setNewTalla('');
-    }
-  };
+  // Tallas
+  const addTallaVaron = () => { if (newTallaVaron.trim()) { setForm(p => ({ ...p, tallasVaron: [...p.tallasVaron, newTallaVaron.trim()] })); setNewTallaVaron(''); }};
+  const removeTallaVaron = (idx) => setForm(p => ({ ...p, tallasVaron: p.tallasVaron.filter((_, i) => i !== idx) }));
+  const addTallaDama = () => { if (newTallaDama.trim()) { setForm(p => ({ ...p, tallasDama: [...p.tallasDama, newTallaDama.trim()] })); setNewTallaDama(''); }};
+  const removeTallaDama = (idx) => setForm(p => ({ ...p, tallasDama: p.tallasDama.filter((_, i) => i !== idx) }));
 
-  const removeTalla = (idx) => {
-    setForm(p => ({ ...p, tallas: p.tallas.filter((_, i) => i !== idx) }));
+  // Contenidos
+  const addContenido = () => { if (!newContenidoNombre.trim()) return; setForm(p => ({ ...p, contenidos: [...p.contenidos, { nombre: newContenidoNombre.trim(), imagen: null }] })); setNewContenidoNombre(''); };
+  const removeContenido = (idx) => setForm(p => ({ ...p, contenidos: p.contenidos.filter((_, i) => i !== idx) }));
+  const updateContenidoImagen = (idx, imagen) => setForm(p => ({ ...p, contenidos: p.contenidos.map((c, i) => i === idx ? { ...c, imagen } : c) }));
+
+  // Modelos de precio
+  const ringProducts = (allProducts || []).filter(p => p.categoryId?.includes('anillo'));
+  const addModeloPrecio = () => {
+    if (!newModeloAnilloId || !newModeloPrecio) return;
+    const anillo = ringProducts.find(p => p.id === newModeloAnilloId);
+    if (!anillo) return;
+    setForm(p => ({ ...p, modelosPrecio: [...p.modelosPrecio, { anilloId: anillo.id, anilloNombre: anillo.title, precioCombo: newModeloPrecio }] }));
+    setNewModeloAnilloId(''); setNewModeloPrecio('');
   };
+  const removeModeloPrecio = (idx) => setForm(p => ({ ...p, modelosPrecio: p.modelosPrecio.filter((_, i) => i !== idx) }));
+
+  const isPack = form.categoryId?.includes('pack');
+  const isAnillos = form.categoryId?.includes('anillo');
 
   const handleSubmit = () => {
     if (!form.title.trim()) { notifications.show({ title: 'Error', message: 'El título es obligatorio', color: 'red' }); return; }
     if (!form.categoryId) { notifications.show({ title: 'Error', message: 'Selecciona una categoría', color: 'red' }); return; }
-    if (product) {
-      updateProduct(product.id, form);
-      notifications.show({ title: 'Actualizado', message: 'Producto actualizado', color: 'green' });
-    } else {
-      addProduct({ id: generateId(), ...form });
-      notifications.show({ title: 'Agregado', message: 'Producto agregado', color: 'green' });
-    }
+    if (product) { updateProduct(product.id, form); notifications.show({ title: 'Actualizado', message: 'Producto actualizado', color: 'green' }); }
+    else { addProduct({ id: generateId(), ...form }); notifications.show({ title: 'Agregado', message: 'Producto agregado', color: 'green' }); }
     onSave();
   };
 
+  const selectedCat = categories.find(c => c.id === form.categoryId);
+
   return (
-    <Modal opened={open} onClose={onClose} title={product ? 'Editar Producto' : 'Nuevo Producto'}
+    <Modal opened={open} onClose={onClose}
+      title={product ? 'Editar Producto' : (step === 1 ? '¿Para qué categoría?' : `Nuevo: ${selectedCat?.name || ''}`)}
       centered size="lg" radius="lg"
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <TextInput label="Título" placeholder="Nombre del producto" value={form.title}
-          onChange={(e) => setForm(p => ({ ...p, title: e.currentTarget.value }))} required radius="md" />
-        <Textarea label="Descripción" placeholder="Descripción del producto" value={form.description}
-          onChange={(e) => setForm(p => ({ ...p, description: e.currentTarget.value }))} radius="md" rows={3} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <TextInput label="Material" placeholder="Ej: Acero Inoxidable, Plata 925" value={form.material}
-            onChange={(e) => setForm(p => ({ ...p, material: e.currentTarget.value }))} radius="md" />
-          <TextInput label="Precio (S/.)" placeholder="0.00" value={form.price}
-            onChange={(e) => setForm(p => ({ ...p, price: e.currentTarget.value }))} radius="md" />
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Select label="Tipo de acabado" placeholder="Ninguno" value={form.platingType || ''}
-            onChange={(val) => setForm(p => ({ ...p, platingType: val || '' }))}
-            data={[
-              { value: 'Enchapado', label: 'Enchapado' },
-              { value: 'Laminado', label: 'Laminado' },
-              { value: 'Bañado', label: 'Bañado' },
-            ]}
-            radius="md" clearable />
-          {form.platingType && (
-            <TextInput label={`${form.platingType} en`} placeholder="Ej: Oro 18k, Plata" value={form.plating}
-              onChange={(e) => setForm(p => ({ ...p, plating: e.currentTarget.value }))} radius="md" />
-          )}
-        </div>
-        <Select label="Categoría" placeholder="Seleccionar" value={form.categoryId}
-          onChange={(val) => setForm(p => ({ ...p, categoryId: val || '' }))}
-          data={categories.map(c => ({ value: c.id, label: c.name }))} required radius="md" />
 
-        <div>
-          <Text size="sm" fw={500} mb={6}>Tallas Disponibles</Text>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <TextInput placeholder="Ej: S, M, L, 7, 8..." value={newTalla}
-              onChange={(e) => setNewTalla(e.currentTarget.value)} radius="md" style={{ flex: 1 }}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTalla(); } }} />
-            <Button radius="md" style={{ background: COLORS.orange }} onClick={addTalla}>+</Button>
-          </div>
-          {form.tallas.length > 0 && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {form.tallas.map((t, i) => (
-                <Badge key={i} size="lg" radius="xl" variant="outline" color="orange"
-                  rightSection={<ActionIcon size="xs" variant="transparent" color="red" onClick={() => removeTalla(i)}><IconX size={10} /></ActionIcon>}
-                >{t}</Badge>
-              ))}
-            </div>
-          )}
-          <Text size="xs" c="dimmed" mt={4}>Escribe una talla y presiona Enter o el botón +</Text>
-        </div>
-
-        <Switch label="Agotado" checked={form.soldOut}
-          onChange={(e) => setForm(p => ({ ...p, soldOut: e.currentTarget.checked }))} color="orange" />
-        <Switch label="Mostrar boton de WhatsApp" checked={form.showWhatsapp}
-          onChange={(e) => setForm(p => ({ ...p, showWhatsapp: e.currentTarget.checked }))} color="green"
-          description="Permite a los clientes consultar por este producto via WhatsApp" />
-        <div>
-          <Text size="sm" fw={500} mb={6}>Imágenes (1200x1200 recomendado)</Text>
-          {form.images.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-              {form.images.map((img, i) => (
-                <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
-                  <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
-                  <ActionIcon size="xs" variant="filled" color="red" radius="xl"
-                    style={{ position: 'absolute', top: -6, right: -6 }} onClick={() => removeImage(i)}><IconX size={10} /></ActionIcon>
+      {/* ===== PASO 1: Elegir categoría ===== */}
+      {step === 1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', marginBottom: 4 }}>
+            Selecciona la categoría del producto para ver solo los campos necesarios
+          </Text>
+          {categories.map(cat => (
+            <motion.button key={cat.id} whileTap={{ scale: 0.97 }}
+              onClick={() => { setForm(p => ({ ...p, categoryId: cat.id })); setStep(2); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '12px 16px', borderRadius: 12, border: `1.5px solid ${COLORS.borderLight}`,
+                background: 'white', cursor: 'pointer', textAlign: 'left', width: '100%',
+              }}>
+              {/* Imagen real de la categoría */}
+              <div style={{
+                width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                background: `linear-gradient(135deg, ${COLORS.navyLight}, ${COLORS.navy})`,
+                overflow: 'hidden', border: `1px solid ${COLORS.borderLight}`,
+              }}>
+                {cat.image ? (
+                  <img src={cat.image} alt={cat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', background: cat.id.includes('pack') ? 'linear-gradient(135deg, #fff4e6, #ffe0c2)' : 'linear-gradient(135deg, #f0f4ff, #e6edff)' }} />
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', fontWeight: 600, color: COLORS.navy }}>{cat.name}</div>
+                <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted, marginTop: 1 }}>
+                  {cat.id.includes('pack') ? 'Pack de presentación con contenidos y precios por modelo' :
+                   cat.id.includes('anillo') ? 'Material, acabado y tallas por género' :
+                   'Material, acabado y descripción'}
                 </div>
-              ))}
-            </div>
-          )}
-          <FileInput accept="image/*" placeholder="Seleccionar imagen" leftSection={<IconUpload size={16} />}
-            onChange={handleImageAdd} radius="md" clearable />
-          <Text size="xs" c="dimmed" mt={4}>Puedes agregar varias imágenes una por una</Text>
+              </div>
+              <span style={{ color: COLORS.borderLight, fontSize: '1rem', fontWeight: 300 }}>›</span>
+            </motion.button>
+          ))}
         </div>
-        <Button onClick={handleSubmit} radius="xl" size="md" mt="md"
-          style={{ background: COLORS.navy, fontFamily: '"Outfit", sans-serif' }}>
-          {product ? 'Guardar Cambios' : 'Agregar Producto'}
-        </Button>
-      </div>
+      )}
+
+      {/* ===== PASO 2: Formulario ===== */}
+      {step === 2 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {!product && (
+            <button onClick={() => setStep(1)} style={{
+              display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
+              cursor: 'pointer', color: COLORS.textMuted, fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem', padding: 0,
+            }}>
+              ‹ Cambiar categoría
+            </button>
+          )}
+
+          {/* Categoría seleccionada — solo lectura */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+            borderRadius: 10, background: isPack ? '#fff8f0' : '#f0f4ff',
+            border: `1px solid ${isPack ? 'rgba(247,103,7,0.2)' : 'rgba(44,74,128,0.12)'}`,
+          }}>
+            {selectedCat?.image ? (
+              <img src={selectedCat.image} alt="" style={{ width: 24, height: 24, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 24, height: 24, borderRadius: 5, background: isPack ? '#ffe0c2' : '#e6edff', flexShrink: 0 }} />
+            )}
+            <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem', fontWeight: 600, color: isPack ? COLORS.orange : COLORS.navy }}>
+              {selectedCat?.name}
+            </span>
+          </div>
+
+          <TextInput label="Título" placeholder="Nombre del producto" value={form.title}
+            onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, title: v })); }} required radius="md" />
+          <Textarea label="Descripción" placeholder="Descripción" value={form.description}
+            onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, description: v })); }} radius="md" rows={2} />
+
+          {/* ===== CAMPOS JOYERÍA (no pack) ===== */}
+          {!isPack && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <TextInput label="Material" placeholder="Ej: Acero Inoxidable" value={form.material}
+                  onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, material: v })); }} radius="md" />
+                <TextInput label="Precio (S/.)" placeholder="0.00" value={form.price}
+                  onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, price: v })); }} radius="md" />
+              </div>
+              {storeType === 'jewelry' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <Select label="Tipo de acabado" placeholder="Ninguno" value={form.platingType || ''}
+                    onChange={(val) => setForm(p => ({ ...p, platingType: val || '' }))}
+                    data={[{ value: 'Enchapado', label: 'Enchapado' }, { value: 'Laminado', label: 'Laminado' }, { value: 'Bañado', label: 'Bañado' }]}
+                    radius="md" clearable />
+                  {form.platingType && (
+                    <TextInput label={`${form.platingType} en`} placeholder="Ej: Oro 18k" value={form.plating}
+                      onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, plating: v })); }} radius="md" />
+                  )}
+                </div>
+              )}
+              {/* Tallas solo para anillos */}
+              {isAnillos && (
+                <div style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px', background: '#f8f9fa', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+                    <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy }}>Tallas Disponibles</Text>
+                  </div>
+                  {/* Varón */}
+                  <div style={{ padding: '12px 14px', borderBottom: `1px solid ${COLORS.borderLight}`, background: '#f0f4ff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#2c4a80' }} />
+                      <Text size="xs" fw={700} style={{ fontFamily: '"Outfit", sans-serif', color: '#2c4a80', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Varón</Text>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <TextInput placeholder="Ej: 6, 7, 8..." value={newTallaVaron}
+                        onChange={(e) => { const v = e.currentTarget.value; setNewTallaVaron(v); }} radius="md" size="xs" style={{ flex: 1 }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTallaVaron(); }}} />
+                      <Button size="xs" radius="md" style={{ background: '#2c4a80', minWidth: 36 }} onClick={addTallaVaron}>+</Button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {form.tallasVaron.length === 0 ? <Text size="xs" c="dimmed" style={{ fontStyle: 'italic' }}>Sin tallas</Text> :
+                        form.tallasVaron.map((t, i) => (
+                          <Badge key={i} size="md" radius="xl" style={{ background: '#2c4a80', color: 'white' }}
+                            rightSection={<ActionIcon size="xs" variant="transparent" style={{ color: 'rgba(255,255,255,0.8)' }} onClick={() => removeTallaVaron(i)}><IconX size={9} /></ActionIcon>}>{t}</Badge>
+                        ))}
+                    </div>
+                  </div>
+                  {/* Dama */}
+                  <div style={{ padding: '12px 14px', background: '#fff0f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#c2255c' }} />
+                      <Text size="xs" fw={700} style={{ fontFamily: '"Outfit", sans-serif', color: '#c2255c', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Dama</Text>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <TextInput placeholder="Ej: 5, 6, 7..." value={newTallaDama}
+                        onChange={(e) => { const v = e.currentTarget.value; setNewTallaDama(v); }} radius="md" size="xs" style={{ flex: 1 }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTallaDama(); }}} />
+                      <Button size="xs" radius="md" style={{ background: '#c2255c', minWidth: 36 }} onClick={addTallaDama}>+</Button>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {form.tallasDama.length === 0 ? <Text size="xs" c="dimmed" style={{ fontStyle: 'italic' }}>Sin tallas</Text> :
+                        form.tallasDama.map((t, i) => (
+                          <Badge key={i} size="md" radius="xl" style={{ background: '#c2255c', color: 'white' }}
+                            rightSection={<ActionIcon size="xs" variant="transparent" style={{ color: 'rgba(255,255,255,0.8)' }} onClick={() => removeTallaDama(i)}><IconX size={9} /></ActionIcon>}>{t}</Badge>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ===== CAMPOS PACK ===== */}
+          {isPack && (
+            <>
+              <TextInput label="Precio del pack solo (S/.)" placeholder="0.00" value={form.price}
+                onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, price: v })); }} radius="md"
+                description="Precio base del pack sin anillo" />
+
+              {/* Contenidos */}
+              <div style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: 'hidden' }}>
+                <div style={{ padding: '10px 14px', background: 'linear-gradient(90deg, #fff8f0, #fff)', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+                  <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.orange }}>Contenido del pack</Text>
+                  <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', marginTop: 2 }}>Agrega cada item. La foto es opcional.</Text>
+                </div>
+                <div style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                    <TextInput placeholder="Ej: Caja de terciopelo, Acta de promesa..." value={newContenidoNombre}
+                      onChange={(e) => { const v = e.currentTarget.value; setNewContenidoNombre(v); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addContenido(); }}}
+                      radius="md" size="xs" style={{ flex: 1 }} />
+                    <Button size="xs" radius="md" style={{ background: COLORS.orange, minWidth: 36 }} onClick={addContenido}>+</Button>
+                  </div>
+                  {form.contenidos.length === 0 ? <Text size="xs" c="dimmed" style={{ fontStyle: 'italic' }}>Sin contenidos aún</Text> : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {form.contenidos.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, background: '#fafafa', border: `1px solid ${COLORS.borderLight}` }}>
+                          <div style={{ flexShrink: 0 }}>
+                            {item.imagen ? (
+                              <div style={{ position: 'relative' }}>
+                                <img src={item.imagen} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                                <button onClick={() => updateContenidoImagen(idx, null)}
+                                  style={{ position: 'absolute', top: -4, right: -4, width: 16, height: 16, borderRadius: '50%', background: '#e53e3e', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                                  <IconX size={9} color="white" />
+                                </button>
+                              </div>
+                            ) : (
+                              <label style={{ cursor: 'pointer' }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 8, border: `1.5px dashed ${COLORS.borderLight}`, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f8f8', flexDirection: 'column', gap: 2 }}>
+                                  {uploadingContenidoImg === idx ? <Text size="xs" c="dimmed">...</Text> : <><IconPhoto size={13} color={COLORS.textMuted} /><Text size="xs" c="dimmed" style={{ fontSize: '0.45rem' }}>foto</Text></>}
+                                </div>
+                                <input type="file" accept="image/*" style={{ display: 'none' }}
+                                  onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; setUploadingContenidoImg(idx); const img64 = await uploadImage(file); updateContenidoImagen(idx, img64); setUploadingContenidoImg(null); }} />
+                              </label>
+                            )}
+                          </div>
+                          <span style={{ flex: 1, fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem', color: COLORS.navy, fontWeight: 500 }}>{item.nombre}</span>
+                          <ActionIcon size="sm" variant="subtle" color="red" onClick={() => removeContenido(idx)}><IconTrash size={13} /></ActionIcon>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modelos automáticos — info */}
+              <div style={{ padding: '10px 14px', borderRadius: 10, background: '#f0f4ff', border: '1px solid rgba(44,74,128,0.1)' }}>
+                <Text size="xs" style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy, fontWeight: 600 }}>Precios con anillos — automático</Text>
+                <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', marginTop: 4, lineHeight: 1.5 }}>
+                  Al cliente le aparecerá automáticamente cada anillo registrado con el precio total (precio anillo + precio pack). Solo necesitas definir el precio del pack arriba.
+                </Text>
+              </div>
+            </>
+          )}
+
+          <Switch label="Agotado" checked={form.soldOut}
+            onChange={(e) => setForm(p => ({ ...p, soldOut: e.currentTarget.checked }))} color="orange" />
+          <Switch label="Mostrar botón de WhatsApp" checked={form.showWhatsapp}
+            onChange={(e) => setForm(p => ({ ...p, showWhatsapp: e.currentTarget.checked }))} color="green" />
+
+          {/* Imágenes */}
+          <div>
+            <Text size="sm" fw={500} mb={6}>Imágenes</Text>
+            {form.images.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {form.images.map((img, i) => (
+                  <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
+                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
+                    <ActionIcon size="xs" variant="filled" color="red" radius="xl"
+                      style={{ position: 'absolute', top: -6, right: -6 }} onClick={() => removeImage(i)}><IconX size={10} /></ActionIcon>
+                  </div>
+                ))}
+              </div>
+            )}
+            <FileInput accept="image/*" placeholder={uploadingImage ? 'Subiendo...' : 'Agregar imagen'}
+              leftSection={<IconUpload size={16} />} onChange={handleImageAdd} radius="md" clearable disabled={uploadingImage} />
+          </div>
+
+          <Button onClick={handleSubmit} radius="xl" size="md" mt="sm"
+            style={{ background: COLORS.navy, fontFamily: '"Outfit", sans-serif' }}>
+            {product ? 'Guardar Cambios' : 'Agregar Producto'}
+          </Button>
+        </div>
+      )}
     </Modal>
   );
 }
+
 
 function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
   const [form, setForm] = useState({ name: '', lottieUrl: '', image: '' });
@@ -455,8 +876,12 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
 
   const handleImageAdd = async (file) => {
     if (!file) return;
-    try { const base64 = await imageToBase64(file); setForm(p => ({ ...p, image: base64 })); }
-    catch { notifications.show({ title: 'Error', message: 'Error al cargar imagen', color: 'red' }); }
+    try {
+      const base64 = await uploadImage(file);
+      setForm(p => ({ ...p, image: base64 }));
+    } catch {
+      notifications.show({ title: 'Error', message: 'Error al cargar imagen', color: 'red' });
+    }
   };
 
   const handleSubmit = () => {
@@ -479,7 +904,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <TextInput label="Nombre de la categoría" placeholder="Ej: Aretes" value={form.name}
-          onChange={(e) => setForm(p => ({ ...p, name: e.currentTarget.value }))} required radius="md" />
+          onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, name: v })); }} required radius="md" />
         <div>
           <Text size="sm" fw={500} mb={6}>Sticker Lottie (animación)</Text>
           <SegmentedControl value={lottieMode}
@@ -494,7 +919,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
               data={LOTTIE_PRESETS} clearable radius="md" />
           ) : (
             <TextInput placeholder="https://lottie.host/xxxxx/xxxxx.lottie" value={form.lottieUrl}
-              onChange={(e) => setForm(p => ({ ...p, lottieUrl: e.currentTarget.value }))}
+              onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, lottieUrl: v })); }}
               leftSection={<IconLink size={16} />} radius="md" description="Pega el link de LottieFiles aquí" />
           )}
           {form.lottieUrl && (
@@ -558,12 +983,12 @@ function LocationFormModal({ open, location, onClose, onSave }) {
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <TextInput label="Nombre del Lugar" placeholder="Ej: Real Plaza" value={form.name}
-          onChange={(e) => setForm(p => ({ ...p, name: e.currentTarget.value }))} required radius="md" />
+          onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, name: v })); }} required radius="md" />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <TextInput label="Latitud" placeholder="-15.4980" value={form.lat}
-            onChange={(e) => setForm(p => ({ ...p, lat: e.currentTarget.value }))} radius="md" />
+            onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, lat: v })); }} radius="md" />
           <TextInput label="Longitud" placeholder="-70.1290" value={form.lng}
-            onChange={(e) => setForm(p => ({ ...p, lng: e.currentTarget.value }))} radius="md" />
+            onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, lng: v })); }} radius="md" />
         </div>
         <Card padding="sm" radius="md" style={{ background: '#f0f4ff', border: '1px solid #dde4f0' }}>
           <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', lineHeight: 1.5 }}>
@@ -598,9 +1023,9 @@ function PasswordModal({ open, onClose }) {
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600 } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <TextInput type="password" label="Nueva Contraseña" value={newPw}
-          onChange={(e) => setNewPw(e.currentTarget.value)} radius="md" />
+          onChange={(e) => { const v = e.currentTarget.value; setNewPw(v); }} radius="md" />
         <TextInput type="password" label="Confirmar" value={confirm}
-          onChange={(e) => setConfirm(e.currentTarget.value)} radius="md" />
+          onChange={(e) => { const v = e.currentTarget.value; setConfirm(v); }} radius="md" />
         <Button onClick={handleSave} radius="xl" style={{ background: COLORS.navy }}>Guardar</Button>
       </div>
     </Modal>

@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { IconChevronLeft } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 
-export default function Header({ onLogoClick }) {
+export default function Header({ onLogoClick, onBack }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/';
@@ -17,17 +17,13 @@ export default function Header({ onLogoClick }) {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
+        position: 'sticky', top: 0, zIndex: 50,
         background: 'rgba(255,255,255,0.88)',
         backdropFilter: 'blur(24px) saturate(180%)',
         WebkitBackdropFilter: 'blur(24px) saturate(180%)',
         borderBottom: `1px solid rgba(232,237,245,0.6)`,
         padding: '10px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -36,11 +32,8 @@ export default function Header({ onLogoClick }) {
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0 }}
-            onClick={() => navigate(-1)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              padding: 4, display: 'flex', alignItems: 'center', color: COLORS.navy,
-            }}
+            onClick={() => { onBack?.(); navigate(-1); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: COLORS.navy }}
           >
             <IconChevronLeft size={24} />
           </motion.button>

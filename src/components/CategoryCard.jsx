@@ -6,6 +6,7 @@ import { COLORS } from '../utils/theme';
 
 export default function CategoryCard({ category, onClick, index = 0, productCount = 0 }) {
   const hasImage = !!category.image;
+  const hasLottie = !!category.lottieUrl;
 
   return (
     <motion.div
@@ -36,7 +37,7 @@ export default function CategoryCard({ category, onClick, index = 0, productCoun
           background: hasImage ? '#111' : `linear-gradient(135deg, ${COLORS.navy} 0%, ${COLORS.navyLight} 100%)`,
         }}
       >
-        {/* Background Photo - CLEAR and visible */}
+        {/* Background Photo */}
         {hasImage && (
           <motion.img
             src={category.image}
@@ -45,17 +46,13 @@ export default function CategoryCard({ category, onClick, index = 0, productCoun
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
             style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              position: 'absolute',
-              inset: 0,
-              opacity: 0.92,
+              width: '100%', height: '100%', objectFit: 'cover',
+              position: 'absolute', inset: 0, opacity: 0.92,
             }}
           />
         )}
 
-        {/* No-image placeholder */}
+        {/* No-image placeholder dots */}
         {!hasImage && (
           <div style={{
             position: 'absolute', inset: 0, opacity: 0.08,
@@ -64,7 +61,7 @@ export default function CategoryCard({ category, onClick, index = 0, productCoun
           }} />
         )}
 
-        {/* Only a subtle bottom gradient so text is readable - NO heavy dark overlay */}
+        {/* Bottom gradient overlay */}
         <div style={{
           position: 'absolute', inset: 0, zIndex: 1,
           background: hasImage
@@ -72,18 +69,59 @@ export default function CategoryCard({ category, onClick, index = 0, productCoun
             : 'linear-gradient(0deg, rgba(26,39,68,0.6) 0%, transparent 50%)',
         }} />
 
+        {/* ====== LOTTIE STICKER FLOTANTE ====== */}
+        {hasLottie && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5, rotate: -15 }}
+            whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: index * 0.1 + 0.3, type: 'spring', stiffness: 180, damping: 12 }}
+            animate={{ y: [0, -5, 0] }}
+            style={{
+              position: 'absolute', top: 12, right: 12, zIndex: 5,
+              width: 56, height: 56,
+              background: 'rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(12px)',
+              borderRadius: '50%',
+              border: '1.5px solid rgba(255,255,255,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            }}
+          >
+            <dotlottie-wc
+              src={category.lottieUrl}
+              style={{ width: '40px', height: '40px' }}
+              autoplay loop
+            />
+          </motion.div>
+        )}
+
+        {/* Corner accent (only if no lottie) */}
+        {!hasLottie && (
+          <>
+            <div style={{
+              position: 'absolute', top: 12, right: 12, zIndex: 3,
+              width: 20, height: 20,
+              borderTop: '2px solid rgba(247,103,7,0.3)',
+              borderRight: '2px solid rgba(247,103,7,0.3)',
+              borderRadius: '0 5px 0 0',
+            }} />
+            <div style={{
+              position: 'absolute', top: 12, left: 12, zIndex: 3,
+              width: 20, height: 20,
+              borderTop: '2px solid rgba(247,103,7,0.3)',
+              borderLeft: '2px solid rgba(247,103,7,0.3)',
+              borderRadius: '5px 0 0 0',
+            }} />
+          </>
+        )}
+
         {/* Category info at bottom */}
         <div
           style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 4,
-            padding: '16px 18px',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            zIndex: 4, padding: '16px 18px',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
           }}
         >
           <div>
@@ -94,72 +132,36 @@ export default function CategoryCard({ category, onClick, index = 0, productCoun
               transition={{ duration: 0.4, delay: index * 0.1 + 0.2 }}
               style={{
                 fontFamily: '"Playfair Display", serif',
-                fontSize: '1.15rem',
-                fontWeight: 600,
-                color: COLORS.white,
-                marginBottom: 3,
-                textShadow: '0 1px 6px rgba(0,0,0,0.4)',
+                fontSize: '1.15rem', fontWeight: 600, color: COLORS.white,
+                marginBottom: 3, textShadow: '0 1px 6px rgba(0,0,0,0.4)',
               }}
             >
               {category.name}
             </motion.h3>
-
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{
-                width: 24, height: 1.5,
-                background: 'linear-gradient(90deg, #f76707, transparent)',
-                borderRadius: 1,
-              }} />
-              <span
-                style={{
-                  fontFamily: '"Outfit", sans-serif',
-                  fontSize: '0.62rem',
-                  color: 'rgba(255,255,255,0.75)',
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.3)',
-                }}
-              >
+              <div style={{ width: 24, height: 1.5, background: 'linear-gradient(90deg, #f76707, transparent)', borderRadius: 1 }} />
+              <span style={{
+                fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem',
+                color: 'rgba(255,255,255,0.75)', letterSpacing: '1.5px',
+                textTransform: 'uppercase', textShadow: '0 1px 4px rgba(0,0,0,0.3)',
+              }}>
                 {productCount} {productCount === 1 ? 'producto' : 'productos'}
               </span>
             </div>
           </div>
 
           <motion.div
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: 'rgba(247,103,7,0.25)',
-              backdropFilter: 'blur(8px)',
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'rgba(247,103,7,0.25)', backdropFilter: 'blur(8px)',
               border: '1px solid rgba(247,103,7,0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}
           >
             <IconChevronRight size={16} color={COLORS.orange} />
           </motion.div>
         </div>
-
-        {/* Small decorative corner accents */}
-        <div style={{
-          position: 'absolute', top: 12, right: 12, zIndex: 3,
-          width: 20, height: 20,
-          borderTop: '2px solid rgba(247,103,7,0.3)',
-          borderRight: '2px solid rgba(247,103,7,0.3)',
-          borderRadius: '0 5px 0 0',
-        }} />
-        <div style={{
-          position: 'absolute', top: 12, left: 12, zIndex: 3,
-          width: 20, height: 20,
-          borderTop: '2px solid rgba(247,103,7,0.3)',
-          borderLeft: '2px solid rgba(247,103,7,0.3)',
-          borderRadius: '5px 0 0 0',
-        }} />
       </div>
     </motion.div>
   );

@@ -1,5 +1,5 @@
 // src/utils/store.js
-import { saveToFirebase } from './firebase';
+import { saveToFirebase, saveProductToFirebase, saveProductImagesToFirebase, deleteProductFromFirebase } from './firebase';
 
 const STORAGE_KEY = 'benito_store_data';
 
@@ -9,6 +9,8 @@ const DEFAULT_JEWELRY_CATEGORIES = [
   { id: 'collares', name: 'Collares', image: '', lottieUrl: 'https://lottie.host/127d2e9a-3ac9-457f-a3b5-447168c1b4a0/T2ntdUWyuk.lottie', storeType: 'jewelry', order: 2 },
   { id: 'collares-parejas', name: 'Collares para Parejas', image: '', lottieUrl: 'https://lottie.host/454dfe96-d4d9-4938-96f4-db32c761f5d0/SLbWwfzsQh.lottie', storeType: 'jewelry', order: 3 },
   { id: 'pulseras', name: 'Pulseras', image: '', lottieUrl: 'https://lottie.host/12dd8dcf-4152-449c-b7d0-bb9448664e7a/Tz7RkTie6i.lottie', storeType: 'jewelry', order: 4 },
+  { id: 'packs-presentacion', name: 'Packs de Presentación', image: '', lottieUrl: 'https://lottie.host/f605aec1-2e91-496b-9b55-4982e2f75047/Ow0BUEgWTP.lottie', storeType: 'jewelry', order: 5, isPack: true },
+  { id: 'detalles', name: 'Detalles', image: '', lottieUrl: 'https://lottie.host/f605aec1-2e91-496b-9b55-4982e2f75047/Ow0BUEgWTP.lottie', storeType: 'jewelry', order: 6 },
 ];
 
 const DEFAULT_DELIVERY_LOCATIONS = [
@@ -24,6 +26,7 @@ const DEFAULT_DATA = {
   categories: [...DEFAULT_JEWELRY_CATEGORIES],
   products: [],
   adminPassword: 'benito2026',
+  whatsappNumber: '51970824366',
   deliveryLocations: [...DEFAULT_DELIVERY_LOCATIONS],
   shalomImage: '',
   sales: [],
@@ -44,7 +47,10 @@ export function loadStore() {
 
 export function saveStore(data) {
   cacheData = data;
-  saveToFirebase(data);
+  // Solo guardar metadatos en el doc principal (sin productos ni imágenes)
+  // Los productos se guardan individualmente con saveProductToFirebase
+  const { products, ...meta } = data;
+  saveToFirebase({ ...meta, products: [] }); // products vacio en meta
 }
 
 export function setCacheData(data) {
@@ -55,6 +61,16 @@ export function setCacheData(data) {
   if (!data.capital) data.capital = [];
   if (!data.frecuentClients) data.frecuentClients = [];
   if (!data.pagosAccionista) data.pagosAccionista = [];
+  if (!data.whatsappNumber) data.whatsappNumber = '51970824366';
+
+  // Asegurar que todas las categorías por defecto existen (merge sin duplicar)
+  const existingIds = (data.categories || []).map(c => c.id);
+  DEFAULT_JEWELRY_CATEGORIES.forEach(defCat => {
+    if (!existingIds.includes(defCat.id)) {
+      data.categories = [...(data.categories || []), defCat];
+    }
+  });
+
   cacheData = data;
 }
 
@@ -76,6 +92,26 @@ export function addCategory(category) {
   return data;
 }
 
+export function reorderCategories(storeType, fromIdx, toIdx) {
+  const data = loadStore();
+  // Separar por storeType y ordenar
+  const typeCats = data.categories
+    .filter(c => c.storeType === storeType)
+    .sort((a, b) => a.order - b.order);
+  const otherCats = data.categories.filter(c => c.storeType !== storeType);
+
+  // Mover
+  const [moved] = typeCats.splice(fromIdx, 1);
+  typeCats.splice(toIdx, 0, moved);
+
+  // Reasignar order
+  typeCats.forEach((c, i) => { c.order = i; });
+
+  data.categories = [...otherCats, ...typeCats];
+  saveStore(data);
+  return data;
+}
+
 export function updateCategory(id, updates) {
   const data = loadStore();
   const idx = data.categories.findIndex(c => c.id === id);
@@ -90,8 +126,25 @@ export function deleteCategory(id) {
   const data = loadStore();
   const defaultIds = DEFAULT_JEWELRY_CATEGORIES.map(c => c.id);
   if (defaultIds.includes(id)) return data;
+  // Eliminar productos de Firebase individualmente (fix: antes quedaban huerfanos)
+  const orphanProducts = data.products.filter(p => p.categoryId === id);
+  orphanProducts.forEach(p => deleteProductFromFirebase(p.id));
   data.categories = data.categories.filter(c => c.id !== id);
   data.products = data.products.filter(p => p.categoryId !== id);
+  cacheData = data;
+  saveStore(data);
+  return data;
+}
+
+/* ====== WHATSAPP CONFIG ====== */
+export function getWhatsappNumber() {
+  const data = loadStore();
+  return data.whatsappNumber || '51970824366';
+}
+
+export function updateWhatsappNumber(number) {
+  const data = loadStore();
+  data.whatsappNumber = number;
   saveStore(data);
   return data;
 }
@@ -117,7 +170,11 @@ export function getOfferProducts() {
 export function addProduct(product) {
   const data = loadStore();
   data.products.push(product);
-  saveStore(data);
+  cacheData = data;
+  // Guardar metadatos del producto (sin imágenes) y las imágenes por separado
+  const { images, ...productMeta } = product;
+  saveProductToFirebase(productMeta);
+  if (images && images.length > 0) saveProductImagesToFirebase(product.id, images);
   return data;
 }
 
@@ -126,15 +183,45 @@ export function updateProduct(id, updates) {
   const idx = data.products.findIndex(p => p.id === id);
   if (idx !== -1) {
     data.products[idx] = { ...data.products[idx], ...updates };
-    saveStore(data);
+    cacheData = data;
+    const { images, ...productMeta } = data.products[idx];
+    saveProductToFirebase(productMeta);
+    if (images !== undefined) saveProductImagesToFirebase(id, images || []);
   }
+  return data;
+}
+
+export function reorderProducts(categoryId, fromIdx, toIdx) {
+  const data = loadStore();
+  // Extraer productos de esa categoría (en orden actual)
+  const catProducts = data.products
+    .filter(p => p.categoryId === categoryId)
+    .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+  const others = data.products.filter(p => p.categoryId !== categoryId);
+
+  // Mover
+  const [moved] = catProducts.splice(fromIdx, 1);
+  catProducts.splice(toIdx, 0, moved);
+
+  // Reasignar sortOrder
+  catProducts.forEach((p, i) => { p.sortOrder = i; });
+
+  data.products = [...others, ...catProducts];
+  cacheData = data;
+
+  // Guardar solo los afectados en Firebase
+  catProducts.forEach(p => {
+    const { images, ...meta } = p;
+    saveProductToFirebase(meta);
+  });
   return data;
 }
 
 export function deleteProduct(id) {
   const data = loadStore();
   data.products = data.products.filter(p => p.id !== id);
-  saveStore(data);
+  cacheData = data;
+  deleteProductFromFirebase(id);
   return data;
 }
 
@@ -143,7 +230,9 @@ export function toggleSoldOut(id) {
   const idx = data.products.findIndex(p => p.id === id);
   if (idx !== -1) {
     data.products[idx].soldOut = !data.products[idx].soldOut;
-    saveStore(data);
+    cacheData = data;
+    const { images, ...productMeta } = data.products[idx];
+    saveProductToFirebase(productMeta);
   }
   return data;
 }
@@ -418,6 +507,10 @@ export function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
+/**
+ * Convierte un File a base64 con alta calidad.
+ * Uso interno para luego subir a Firebase Storage.
+ */
 export function imageToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -426,19 +519,31 @@ export function imageToBase64(file) {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
+        // 1200px y calidad 0.88: equilibrio perfecto calidad/peso (~150-200KB por foto)
         const MAX = 1200;
         let w = img.width;
         let h = img.height;
-        if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
-        else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+        if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+        else { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
         canvas.width = w;
         canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.88));
       };
       img.onerror = reject;
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Convierte un File a base64 de alta calidad.
+ * Se guarda en la coleccion productImages separada para no superar 1MB en Firestore.
+ */
+export async function uploadImage(file) {
+  return await imageToBase64(file);
 }

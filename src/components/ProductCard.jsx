@@ -1,13 +1,36 @@
 // src/components/ProductCard.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { IconDiamond, IconSparkles, IconEye, IconDroplet } from '@tabler/icons-react';
+import { IconDiamond, IconSparkles, IconEye, IconDroplet, IconRuler2 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import ProductModal from './ProductModal';
 
-export default function ProductCard({ product, index = 0, showOfferTag = false }) {
+// Skeleton de una sola card
+function ProductCardSkeleton() {
+  return (
+    <div style={{
+      background: COLORS.white, borderRadius: 18, overflow: 'hidden',
+      border: `1px solid ${COLORS.borderLight}`,
+    }}>
+      <div className="skeleton-shimmer" style={{ width: '100%', aspectRatio: '1/1' }} />
+      <div style={{ padding: '12px 12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="skeleton-shimmer" style={{ height: 14, borderRadius: 6, width: '70%' }} />
+        <div className="skeleton-shimmer" style={{ height: 10, borderRadius: 6, width: '50%' }} />
+        <div className="skeleton-shimmer" style={{ height: 18, borderRadius: 6, width: '40%' }} />
+      </div>
+    </div>
+  );
+}
+
+export { ProductCardSkeleton };
+
+// Formatea precio siempre con 2 decimales: 40 → "40.00", 40.5 → "40.50"
+const fmt = (n) => parseFloat(n || 0).toFixed(2);
+
+export default function ProductCard({ product, index = 0, showOfferTag = false, storeData = null, hidePacks = false, comboPrice = null, packPrice = null }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const mainImage = product.images?.[0] || '';
   const hasMultipleImages = (product.images || []).length > 1;
 
@@ -87,16 +110,46 @@ export default function ProductCard({ product, index = 0, showOfferTag = false }
         )}
 
         {/* Image */}
-        <div className="product-image-container" style={{ borderRadius: '18px 18px 0 0' }}>
+        <div className="product-image-container" style={{ borderRadius: '18px 18px 0 0', position: 'relative' }}>
           {mainImage ? (
-            <motion.img
-              src={mainImage}
-              alt={product.title}
-              loading="lazy"
-              style={{ display: 'block' }}
-              animate={{ scale: hovered ? 1.06 : 1 }}
-              transition={{ duration: 0.5 }}
-            />
+            <>
+              {/* Skeleton mientras carga la imagen */}
+              {!imgLoaded && (
+                <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
+              )}
+              <motion.img
+                src={mainImage}
+                alt={product.title}
+                loading="lazy"
+                onLoad={() => setImgLoaded(true)}
+                style={{
+                  display: 'block',
+                  filter: imgLoaded ? 'none' : 'blur(10px)',
+                  transform: imgLoaded ? (hovered ? 'scale(1.06)' : 'scale(1)') : 'scale(1.05)',
+                  transition: 'filter 0.5s ease, transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94)',
+                  opacity: imgLoaded ? 1 : 0.6,
+                }}
+              />
+              {/* Hover overlay con título */}
+              <motion.div
+                animate={{ opacity: hovered ? 1 : 0 }}
+                transition={{ duration: 0.25 }}
+                style={{
+                  position: 'absolute', inset: 0, zIndex: 3,
+                  background: 'linear-gradient(0deg, rgba(26,39,68,0.82) 0%, rgba(26,39,68,0.2) 55%, transparent 100%)',
+                  display: 'flex', alignItems: 'flex-end', padding: '12px',
+                  pointerEvents: 'none',
+                }}
+              >
+                <span style={{
+                  fontFamily: '"Playfair Display", serif', fontSize: '0.82rem',
+                  fontWeight: 600, color: 'white', lineHeight: 1.3,
+                  textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                }}>
+                  {product.title}
+                </span>
+              </motion.div>
+            </>
           ) : (
             <div className="no-image-placeholder">
               <IconDiamond size={32} color={COLORS.borderLight} />
@@ -108,12 +161,16 @@ export default function ProductCard({ product, index = 0, showOfferTag = false }
 
         {/* ====== INFO SECTION ====== */}
         <div style={{ padding: '12px 12px 14px' }}>
-          {/* Titulo */}
-          <h3 style={{
-            fontFamily: '"Playfair Display", serif', fontSize: '0.88rem',
-            fontWeight: 600, color: COLORS.navy, marginBottom: 8, lineHeight: 1.3,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
+          {/* Titulo con shimmer dorado en hover */}
+          <h3
+            className={hovered ? 'product-title-shimmer' : ''}
+            style={{
+              fontFamily: '"Playfair Display", serif', fontSize: '0.88rem',
+              fontWeight: 600, color: COLORS.navy, marginBottom: 8, lineHeight: 1.3,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              transition: 'color 0.3s ease',
+            }}
+          >
             {product.title || 'Sin titulo'}
           </h3>
 
@@ -166,11 +223,37 @@ export default function ProductCard({ product, index = 0, showOfferTag = false }
 
           {/* Precio + Stock */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div className="price-tag" style={{
-              fontSize: '1.1rem', display: 'flex', alignItems: 'baseline', gap: 2,
-            }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>S/.</span>
-              {product.price || '0.00'}
+            <div>
+              <div className="price-tag" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>S/.</span>
+                {fmt(product.price)}
+              </div>
+              {/* Desglose combo (cuando se muestra desde categoría pack) */}
+              {comboPrice !== null && packPrice !== null && (
+                <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.56rem', color: COLORS.textMuted }}>Pack</span>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.56rem', color: COLORS.textMuted }}>+ S/.{fmt(packPrice)}</span>
+                  </div>
+                  <div style={{ height: 1, background: 'rgba(247,103,7,0.15)', margin: '1px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 700 }}>Total</span>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 700 }}>S/.{fmt(comboPrice)}</span>
+                  </div>
+                </div>
+              )}
+              {product.categoryId?.includes('pack') && product.extraPrice && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3,
+                  background: 'linear-gradient(90deg, rgba(247,103,7,0.1), rgba(247,103,7,0.05))',
+                  padding: '2px 7px', borderRadius: 6,
+                  border: '1px solid rgba(247,103,7,0.2)',
+                }}>
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.orange, fontWeight: 700 }}>
+                    + S/.{fmt(product.extraPrice)} con tu anillo
+                  </span>
+                </div>
+              )}
             </div>
             {!product.soldOut && (
               <div style={{
@@ -186,6 +269,51 @@ export default function ProductCard({ product, index = 0, showOfferTag = false }
               </div>
             )}
           </div>
+
+          {/* Tallas — solo para anillos */}
+          {product.categoryId?.includes('anillo') &&
+           ((product.tallasVaron?.length > 0) || (product.tallasDama?.length > 0)) && (
+            <div style={{
+              marginTop: 8,
+              paddingTop: 8,
+              borderTop: `1px solid ${COLORS.borderLight}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}>
+              <IconRuler2 size={12} color={COLORS.textMuted} style={{ flexShrink: 0 }} />
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {product.tallasVaron?.length > 0 && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    background: '#eef2ff',
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(44,74,128,0.12)',
+                  }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#2c4a80', flexShrink: 0 }} />
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: '#2c4a80', fontWeight: 600, letterSpacing: '0.2px' }}>
+                      Varón · {product.tallasVaron.length}
+                    </span>
+                  </div>
+                )}
+                {product.tallasDama?.length > 0 && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    background: '#fff0f6',
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    border: '1px solid rgba(194,37,92,0.12)',
+                  }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#c2255c', flexShrink: 0 }} />
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: '#c2255c', fontWeight: 600, letterSpacing: '0.2px' }}>
+                      Dama · {product.tallasDama.length}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Decorative bottom accent */}
@@ -198,7 +326,7 @@ export default function ProductCard({ product, index = 0, showOfferTag = false }
         }} />
       </motion.div>
 
-      <ProductModal product={product} open={modalOpen} onClose={() => setModalOpen(false)} />
+      <ProductModal product={product} open={modalOpen} onClose={() => setModalOpen(false)} storeData={storeData} hidePacks={hidePacks} />
     </>
   );
 }

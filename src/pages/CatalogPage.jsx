@@ -3,9 +3,10 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { IconSparkles, IconHeart, IconStars, IconArrowRight } from '@tabler/icons-react';
 import RotatingText from '../components/RotatingText';
-import ProductCard from '../components/ProductCard';
+import ProductCard, { ProductCardSkeleton } from '../components/ProductCard';
 import CategoryCard from '../components/CategoryCard';
 import DeliverySection from '../components/DeliverySection';
+import CircularGallery from '../components/CircularGallery';
 import { COLORS } from '../utils/theme';
 
 const fadeUp = {
@@ -15,7 +16,7 @@ const fadeUp = {
   transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] },
 };
 
-export default function CatalogPage({ storeData, onNavigateCategory, onNavigateSecondStore }) {
+export default function CatalogPage({ storeData, isLoading, onNavigateCategory, onNavigateSecondStore }) {
   const jewelryCategories = useMemo(() =>
     (storeData?.categories || [])
       .filter(c => c.storeType === 'jewelry' && !c.isOffers)
@@ -24,7 +25,9 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
   );
 
   const offerProducts = useMemo(() =>
-    (storeData?.products || []).filter(p => p.categoryId === 'ofertas'),
+    (storeData?.products || [])
+      .filter(p => p.categoryId === 'ofertas')
+      .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)),
     [storeData]
   );
 
@@ -52,7 +55,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
       {/* ===== HERO SECTION ===== */}
       <section style={{
         position: 'relative', padding: '48px 20px 40px', textAlign: 'center',
-        overflow: 'hidden', background: 'rgba(255,255,255,0.85)',
+        overflow: 'hidden', background: 'rgba(255,255,255,0.92)',
       }}>
         <div style={{
           position: 'absolute', top: '-50%', left: '50%', transform: 'translateX(-50%)',
@@ -134,8 +137,8 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
               color: COLORS.textMuted, maxWidth: 340, margin: '0 auto', lineHeight: 1.7,
             }}
           >
-            Descubre nuestra colección exclusiva de joyería ,
-            disenada para momentos especiales
+            Descubre nuestra colección exclusiva de joyería,
+            diseñada para momentos especiales
           </motion.p>
         </motion.div>
       </section>
@@ -144,7 +147,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
       {offerProducts.length > 0 && (
         <section style={{
           padding: '36px 16px', position: 'relative',
-          background: 'linear-gradient(180deg, rgba(254,252,249,0.95) 0%, rgba(255,244,230,0.6) 100%)',
+          background: 'linear-gradient(180deg, rgba(254,252,249,0.92) 0%, rgba(255,244,230,0.6) 100%)',
         }}>
           <div style={{
             position: 'absolute', top: 0, left: 0, width: 3, height: '100%',
@@ -183,9 +186,12 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
             </motion.div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-              {offerProducts.map((product, i) => (
-                <ProductCard key={product.id} product={product} index={i} showOfferTag />
-              ))}
+              {isLoading
+                ? [0,1,2,3].map(i => <ProductCardSkeleton key={i} />)
+                : offerProducts.map((product, i) => (
+                    <ProductCard key={product.id} product={product} index={i} showOfferTag storeData={storeData} />
+                  ))
+              }
             </div>
           </motion.div>
         </section>
@@ -194,7 +200,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
       {/* ===== COLLECTIONS ===== */}
       <section style={{
         padding: '40px 16px', position: 'relative',
-        background: 'rgba(255,255,255,0.9)',
+        background: 'rgba(255,255,255,0.92)',
       }}>
         <motion.div {...fadeUp}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
@@ -220,12 +226,19 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: 18,
           }}>
-            {jewelryCategories.map((cat, i) => (
-              <CategoryCard key={cat.id} category={cat} index={i}
-                productCount={getProductCount(cat.id)}
-                onClick={() => onNavigateCategory(cat.id)}
-              />
-            ))}
+            {isLoading
+              ? [0,1,2,3].map(i => (
+                  <div key={i} style={{ borderRadius: 20, overflow: 'hidden', border: `1px solid ${COLORS.borderLight}` }}>
+                    <div className="skeleton-shimmer" style={{ height: 200 }} />
+                  </div>
+                ))
+              : jewelryCategories.map((cat, i) => (
+                  <CategoryCard key={cat.id} category={cat} index={i}
+                    productCount={getProductCount(cat.id)}
+                    onClick={() => onNavigateCategory(cat.id)}
+                  />
+                ))
+            }
           </div>
         </motion.div>
       </section>
@@ -233,7 +246,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
       {/* ===== DIGITAL CATALOG ===== */}
       <section style={{
         padding: '48px 16px', textAlign: 'center', position: 'relative',
-        background: 'linear-gradient(180deg, rgba(248,249,250,0.95) 0%, rgba(255,255,255,0.9) 100%)',
+        background: 'linear-gradient(180deg, rgba(248,249,250,0.92) 0%, rgba(255,255,255,0.92) 100%)',
       }}>
         <motion.div {...fadeUp}>
           <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 3.5, repeat: Infinity }}>
@@ -259,19 +272,22 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
         </motion.div>
       </section>
 
-      {/* ===== GALLERY ===== */}
+      {/* ===== GALLERY - CircularGallery ===== */}
       {galleryImages.length > 0 && (
         <section style={{
-          padding: '48px 0', position: 'relative', overflow: 'hidden',
+          position: 'relative', overflow: 'hidden',
           background: `linear-gradient(135deg, ${COLORS.navyDark} 0%, ${COLORS.navy} 50%, ${COLORS.navyLight} 100%)`,
+          paddingTop: 48,
         }}>
+          {/* Dot pattern */}
           <div style={{
             position: 'absolute', inset: 0, opacity: 0.05,
             backgroundImage: 'radial-gradient(circle, rgba(247,103,7,0.5) 1px, transparent 1px)',
             backgroundSize: '30px 30px', pointerEvents: 'none',
           }} />
 
-          <div style={{ padding: '0 16px', marginBottom: 28, textAlign: 'center', position: 'relative', zIndex: 1 }}>
+          {/* Header */}
+          <div style={{ padding: '0 16px', marginBottom: 16, textAlign: 'center', position: 'relative', zIndex: 1 }}>
             <motion.h2 {...fadeUp} style={{
               fontFamily: '"Playfair Display", serif', fontSize: '1.35rem',
               fontWeight: 600, color: COLORS.white, marginBottom: 8,
@@ -283,38 +299,22 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
             </motion.div>
             <p style={{
               fontFamily: '"Cormorant Garamond", serif', fontSize: '0.95rem',
-              color: 'rgba(255,255,255,0.65)', fontStyle: 'italic',
+              color: 'rgba(255,255,255,0.92)', fontStyle: 'italic',
             }}>
-              Una muestra de nuestras piezas mas destacadas
+              Desliza para explorar nuestras piezas
             </p>
           </div>
 
-          <div style={{
-            display: 'flex', gap: 14, overflowX: 'auto', padding: '0 16px 20px',
-            scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none', position: 'relative', zIndex: 1,
-          }}>
-            {galleryImages.map((item, i) => (
-              <motion.div key={i}
-                initial={{ opacity: 0, scale: 0.85 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.04 }}
-                whileHover={{ scale: 1.05, y: -4 }}
-                style={{ flexShrink: 0, width: 170, scrollSnapAlign: 'center' }}
-              >
-                <div style={{
-                  borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                }}>
-                  <img src={item.image} alt={item.text} style={{ width: 170, height: 170, objectFit: 'cover', display: 'block' }} />
-                </div>
-                <p style={{
-                  fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem',
-                  color: 'rgba(255,255,255,0.55)', textAlign: 'center', marginTop: 8,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>{item.text}</p>
-              </motion.div>
-            ))}
+          {/* CircularGallery */}
+          <div style={{ height: '420px', position: 'relative', zIndex: 1 }}>
+            <CircularGallery
+              items={galleryImages}
+              bend={1}
+              textColor="#ffffff"
+              borderRadius={0.05}
+              scrollSpeed={2}
+              scrollEase={0.05}
+            />
           </div>
         </section>
       )}
@@ -371,7 +371,7 @@ export default function CatalogPage({ storeData, onNavigateCategory, onNavigateS
       {/* ===== FOOTER ===== */}
       <footer style={{
         padding: '28px 16px 40px', textAlign: 'center',
-        background: 'rgba(255,255,255,0.95)', borderTop: `1px solid ${COLORS.borderLight}`,
+        background: 'rgba(255,255,255,0.94)', borderTop: `1px solid ${COLORS.borderLight}`,
       }}>
         <motion.div {...fadeUp}>
           <img src="/logo.png" alt="Benito Store"
