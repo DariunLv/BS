@@ -94,16 +94,35 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
     return { number, encoded: encodeURIComponent(msg) };
   };
 
-  // Swipe con ref para evitar closures obsoletas
+  // Swipe horizontal — ignora si el gesto es vertical (scroll)
   const swipeTouchStartRef = useRef(null);
-  const handleSwipeTouchStart = (e) => { swipeTouchStartRef.current = e.touches[0].clientX; };
+  const swipeLockedRef = useRef(null); // 'h' = horizontal bloqueado, 'v' = vertical bloqueado
+
+  const handleSwipeTouchStart = (e) => {
+    swipeTouchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    swipeLockedRef.current = null;
+  };
+
+  const handleSwipeTouchMove = (e) => {
+    if (!swipeTouchStartRef.current || swipeLockedRef.current) return;
+    const dx = Math.abs(e.touches[0].clientX - swipeTouchStartRef.current.x);
+    const dy = Math.abs(e.touches[0].clientY - swipeTouchStartRef.current.y);
+    // Necesita al menos 8px de movimiento para decidir dirección
+    if (dx + dy < 8) return;
+    // Si se mueve más vertical que horizontal → es scroll, bloqueamos swipe
+    swipeLockedRef.current = dy > dx ? 'v' : 'h';
+  };
+
   const handleSwipeTouchEnd = (e) => {
-    if (swipeTouchStartRef.current === null || !hasSiblings) return;
-    const diff = swipeTouchStartRef.current - e.changedTouches[0].clientX;
+    if (!swipeTouchStartRef.current || !hasSiblings) return;
+    const dx = swipeTouchStartRef.current.x - e.changedTouches[0].clientX;
+    const locked = swipeLockedRef.current;
     swipeTouchStartRef.current = null;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) nextProduct(); else prevProduct();
-    }
+    swipeLockedRef.current = null;
+    // Cancelar si fue gesto vertical o no alcanzó 120px horizontal
+    if (locked === 'v') return;
+    if (Math.abs(dx) < 120) return;
+    if (dx > 0) nextProduct(); else prevProduct();
   };
 
   return (
@@ -124,6 +143,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
       <div
         style={{ maxWidth: 600, margin: '0 auto', position: 'relative' }}
         onTouchStart={handleSwipeTouchStart}
+        onTouchMove={handleSwipeTouchMove}
         onTouchEnd={handleSwipeTouchEnd}
       >
 
@@ -189,19 +209,21 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
         </div>
 
         {/* ====== GALERIA DE IMAGENES ====== */}
-        <AnimatePresence mode="wait" custom={swipeDir}>
+        <div style={{ overflow: 'hidden', position: 'relative' }}>
+        <AnimatePresence mode="popLayout" custom={swipeDir} initial={false}>
         <motion.div
           key={`product-${activeIndex}`}
           custom={swipeDir}
           variants={{
-            enter: (dir) => ({ x: dir * -80, opacity: 0, scale: 0.97 }),
-            center: { x: 0, opacity: 1, scale: 1 },
-            exit:  (dir) => ({ x: dir * 80,  opacity: 0, scale: 0.97 }),
+            enter: (dir) => ({ x: dir < 0 ? '100%' : '-100%', opacity: 1 }),
+            center: { x: 0, opacity: 1 },
+            exit:  (dir) => ({ x: dir < 0 ? '-100%' : '100%', opacity: 1 }),
           }}
           initial="enter"
           animate="center"
           exit="exit"
-          transition={{ duration: 0.32, ease: [0.32, 0, 0.18, 1] }}
+          transition={{ duration: 0.26, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ willChange: 'transform', width: '100%' }}
         >
         <div style={{ position: 'relative', background: COLORS.offWhite }}>
           {images.length > 0 ? (
@@ -969,6 +991,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
         </div>
         </motion.div>
         </AnimatePresence>
+        </div>{/* end overflow hidden */}
       </div>
     </Modal>
 
