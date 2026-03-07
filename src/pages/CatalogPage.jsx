@@ -73,16 +73,118 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
           transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
           style={{ position: 'relative', zIndex: 1 }}
         >
+          {/* ===== LOGO HERO ANIMADO ===== */}
           <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ margin: '0 auto 20px', width: 130, height: 130 }}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+            style={{ margin: '0 auto 28px', width: 160, height: 160, position: 'relative' }}
           >
-            <dotlottie-wc
-              src="https://lottie.host/454dfe96-d4d9-4938-96f4-db32c761f5d0/SLbWwfzsQh.lottie"
-              style={{ width: '130px', height: '130px' }}
-              autoplay loop
+            {/* Anillo exterior rotando */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+              style={{
+                position: 'absolute', inset: -10,
+                borderRadius: '50%',
+                border: '1.5px dashed rgba(247,103,7,0.25)',
+              }}
             />
+            {/* Anillo interior rotando al revés */}
+            <motion.div
+              animate={{ rotate: -360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+              style={{
+                position: 'absolute', inset: 4,
+                borderRadius: '50%',
+                border: '1px dashed rgba(212,165,116,0.3)',
+              }}
+            />
+
+            {/* Resplandor de fondo */}
+            <motion.div
+              animate={{ scale: [1, 1.18, 1], opacity: [0.35, 0.6, 0.35] }}
+              transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                position: 'absolute', inset: 0, borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(247,103,7,0.18) 0%, rgba(212,165,116,0.1) 50%, transparent 70%)',
+                filter: 'blur(8px)',
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* Partículas flotantes */}
+            {[
+              { top: '5%',  left: '15%',  delay: 0,    dur: 3.2 },
+              { top: '10%', left: '75%',  delay: 0.8,  dur: 2.8 },
+              { top: '70%', left: '8%',   delay: 1.4,  dur: 3.6 },
+              { top: '75%', left: '80%',  delay: 0.4,  dur: 2.5 },
+              { top: '45%', left: '90%',  delay: 1.8,  dur: 3.0 },
+            ].map((p, i) => (
+              <motion.div key={i}
+                animate={{ y: [0, -10, 0], opacity: [0.5, 1, 0.5], scale: [0.8, 1.2, 0.8] }}
+                transition={{ duration: p.dur, repeat: Infinity, delay: p.delay, ease: 'easeInOut' }}
+                style={{
+                  position: 'absolute', top: p.top, left: p.left,
+                  width: i % 2 === 0 ? 5 : 4, height: i % 2 === 0 ? 5 : 4,
+                  borderRadius: '50%',
+                  background: i % 2 === 0 ? COLORS.orange : COLORS.gold,
+                  pointerEvents: 'none',
+                }}
+              />
+            ))}
+
+            {/* Logo flotando */}
+            <motion.div
+              animate={{ y: [0, -7, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              style={{
+                position: 'relative', width: '100%', height: '100%',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.95)',
+                boxShadow: '0 8px 40px rgba(247,103,7,0.2), 0 2px 12px rgba(26,39,68,0.1), inset 0 1px 0 rgba(255,255,255,0.9)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                overflow: 'hidden',
+                border: '2px solid rgba(212,165,116,0.3)',
+              }}
+            >
+              {/* Brillo interno */}
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
+                borderRadius: '50% 50% 0 0',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0.6) 0%, transparent 100%)',
+                pointerEvents: 'none',
+              }} />
+              <img
+                src="/logo.png"
+                alt="Benito Virtual Store"
+                style={{
+                  width: '82%', height: '82%',
+                  objectFit: 'contain',
+                  position: 'relative', zIndex: 1,
+                  filter: 'drop-shadow(0 2px 8px rgba(247,103,7,0.3))',
+                }}
+              />
+            </motion.div>
+
+            {/* Destellos ✦ en las esquinas */}
+            {[
+              { top: '-2%', left: '50%',  size: 10, delay: 0 },
+              { top: '50%', left: '-2%',  size: 8,  delay: 1 },
+              { top: '50%', left: '98%',  size: 8,  delay: 0.5 },
+              { top: '98%', left: '50%',  size: 10, delay: 1.5 },
+            ].map((s, i) => (
+              <motion.span key={i}
+                animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
+                transition={{ duration: 2, repeat: Infinity, delay: s.delay, ease: 'easeInOut' }}
+                style={{
+                  position: 'absolute', top: s.top, left: s.left,
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: s.size, color: COLORS.gold, pointerEvents: 'none',
+                  textShadow: `0 0 8px ${COLORS.orange}`,
+                }}
+              >✦</motion.span>
+            ))}
           </motion.div>
 
           <motion.h1
@@ -189,7 +291,7 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
               {isLoading
                 ? [0,1,2,3].map(i => <ProductCardSkeleton key={i} />)
                 : offerProducts.map((product, i) => (
-                    <ProductCard key={product.id} product={product} index={i} showOfferTag storeData={storeData} />
+                    <ProductCard key={product.id} product={product} index={i} showOfferTag storeData={storeData} siblingProducts={offerProducts} siblingIndex={i} />
                   ))
               }
             </div>

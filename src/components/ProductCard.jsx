@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { IconDiamond, IconSparkles, IconEye, IconDroplet, IconRuler2 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import ProductModal from './ProductModal';
+import { trackProductView } from '../utils/store';
 
 // Skeleton de una sola card
 function ProductCardSkeleton() {
@@ -27,11 +28,24 @@ export { ProductCardSkeleton };
 // Formatea precio siempre con 2 decimales: 40 → "40.00", 40.5 → "40.50"
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
-export default function ProductCard({ product, index = 0, showOfferTag = false, storeData = null, hidePacks = false, comboPrice = null, packPrice = null }) {
+export default function ProductCard({ product, index = 0, showOfferTag = false, storeData = null, hidePacks = false, comboPrice = null, packPrice = null, packData = null, siblingProducts = null, siblingIndex = null }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const mainImage = product.images?.[0] || '';
+
+  // Badge "Nuevo" — auto si fue creado en los últimos 7 días
+  const isNew = (() => {
+    if (!product.createdAt) return false;
+    const created = new Date(product.createdAt + 'T00:00:00');
+    const diff = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+    return diff <= 7;
+  })();
+
+  const handleOpenModal = () => {
+    trackProductView(product.id);
+    setModalOpen(true);
+  };
   const hasMultipleImages = (product.images || []).length > 1;
 
   return (
@@ -49,7 +63,7 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
           damping: 15,
         }}
         whileTap={{ scale: 0.96 }}
-        onClick={() => setModalOpen(true)}
+        onClick={handleOpenModal}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -90,6 +104,26 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
             transition={{ delay: index * 0.07 + 0.3, type: 'spring' }}
           >
             OFERTA
+          </motion.div>
+        )}
+
+        {/* Badge NUEVO */}
+        {isNew && !product.soldOut && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 300, delay: 0.1 }}
+            style={{
+              position: 'absolute', top: 10, left: 10, zIndex: 6,
+              background: 'linear-gradient(135deg, #2d8a2d, #3aab3a)',
+              color: 'white', fontSize: '0.52rem', fontWeight: 700,
+              fontFamily: '"Outfit", sans-serif', letterSpacing: '1px',
+              padding: '3px 8px', borderRadius: 10,
+              boxShadow: '0 2px 8px rgba(45,138,45,0.4)',
+              textTransform: 'uppercase',
+            }}
+          >
+            ✦ Nuevo
           </motion.div>
         )}
 
@@ -230,15 +264,59 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
               </div>
               {/* Desglose combo (cuando se muestra desde categoría pack) */}
               {comboPrice !== null && packPrice !== null && (
-                <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.56rem', color: COLORS.textMuted }}>Pack</span>
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.56rem', color: COLORS.textMuted }}>+ S/.{fmt(packPrice)}</span>
+                <div style={{ marginTop: 8 }}>
+                  {/* Fila pack sutil */}
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    marginBottom: 6, padding: '0 2px',
+                  }}>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.textMuted }}>
+                      + Pack
+                    </span>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.textMuted }}>
+                      S/.{fmt(packPrice)}
+                    </span>
                   </div>
-                  <div style={{ height: 1, background: 'rgba(247,103,7,0.15)', margin: '1px 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 700 }}>Total</span>
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 700 }}>S/.{fmt(comboPrice)}</span>
+
+                  {/* Total — diseño navy premium */}
+                  <div style={{
+                    position: 'relative', overflow: 'hidden',
+                    background: `linear-gradient(135deg, ${COLORS.navy} 0%, #2c4a80 100%)`,
+                    borderRadius: 10, padding: '7px 10px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    {/* Brillo decorativo */}
+                    <div style={{
+                      position: 'absolute', top: -10, right: -10,
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: 'rgba(212,165,116,0.15)',
+                      pointerEvents: 'none',
+                    }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <div style={{
+                        width: 14, height: 14, borderRadius: 4,
+                        background: `rgba(212,165,116,0.25)`,
+                        border: '1px solid rgba(212,165,116,0.4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <span style={{ fontSize: '0.5rem', lineHeight: 1 }}>✦</span>
+                      </div>
+                      <span style={{
+                        fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem',
+                        color: COLORS.goldLight, fontWeight: 600,
+                        letterSpacing: '0.8px', textTransform: 'uppercase',
+                      }}>Total</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                      <span style={{
+                        fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
+                        color: COLORS.goldLight, fontWeight: 500,
+                      }}>S/.</span>
+                      <span style={{
+                        fontFamily: '"Playfair Display", serif', fontSize: '1.1rem',
+                        color: 'white', fontWeight: 700, lineHeight: 1,
+                      }}>{fmt(comboPrice)}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -326,7 +404,7 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
         }} />
       </motion.div>
 
-      <ProductModal product={product} open={modalOpen} onClose={() => setModalOpen(false)} storeData={storeData} hidePacks={hidePacks} />
+      <ProductModal product={product} open={modalOpen} onClose={() => setModalOpen(false)} storeData={storeData} hidePacks={hidePacks} comboPrice={comboPrice} packPrice={packPrice} packData={packData} siblingProducts={siblingProducts} siblingIndex={siblingIndex} />
     </>
   );
 }

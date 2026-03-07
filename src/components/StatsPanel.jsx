@@ -200,6 +200,30 @@ export default function StatsPanel({ sales, investments }) {
     });
   }, [monthlyData]);
 
+
+  // ---- Ventas por semana (últimas 8 semanas) ----
+  const weeklyData = useMemo(() => {
+    const weeks = {};
+    const now = new Date();
+    for (let w = 7; w >= 0; w--) {
+      const start = new Date(now);
+      start.setDate(now.getDate() - (w * 7) - now.getDay());
+      start.setHours(0,0,0,0);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      const label = `${String(start.getDate()).padStart(2,'0')}/${String(start.getMonth()+1).padStart(2,'0')}`;
+      const key = start.toISOString().split('T')[0];
+      weeks[key] = { label, ventas: 0, count: 0, start: start.getTime(), end: end.getTime() };
+    }
+    sales.forEach(s => {
+      if (!s.fecha) return;
+      const t = new Date(s.fecha + 'T00:00:00').getTime();
+      const bucket = Object.values(weeks).find(w => t >= w.start && t <= w.end);
+      if (bucket) { bucket.ventas += parseFloat(s.precio) || 0; bucket.count += 1; }
+    });
+    return Object.values(weeks).sort((a,b) => a.start - b.start);
+  }, [sales]);
+
   // ---- Top productos mas vendidos ----
   const topProductos = useMemo(() => {
     const map = {};
@@ -375,6 +399,35 @@ export default function StatsPanel({ sales, investments }) {
     ],
   };
 
+
+  // W) Ventas por semana (barras)
+  const chartSemanal = {
+    title: { text: 'Ventas por Semana (últimas 8)', ...baseTitleStyle },
+    tooltip: { trigger: 'axis', textStyle: baseTextStyle,
+      formatter: (params) => {
+        const p = params[0];
+        return `Semana del ${p.name}<br/>S/.${p.value?.toFixed(2) || 0} (${weeklyData[p.dataIndex]?.count || 0} ventas)`;
+      }
+    },
+    grid: { ...gridBase, top: 55 },
+    xAxis: { type: 'category', data: weeklyData.map(w => w.label), axisLabel: { ...baseTextStyle, fontSize: 9 } },
+    yAxis: { type: 'value', axisLabel: { ...baseTextStyle, formatter: 'S/.{value}' } },
+    series: [{
+      type: 'bar',
+      data: weeklyData.map((w, i) => ({
+        value: w.ventas,
+        itemStyle: {
+          color: i === weeklyData.length - 1
+            ? new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#f76707'},{offset:1,color:'#e8590c'}])
+            : new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#60a5fa'},{offset:1,color:'#2c4a80'}]),
+          borderRadius: [6,6,0,0],
+        }
+      })),
+      label: { show: true, position: 'top', fontSize: 9, color: COLORS.navy,
+        formatter: (p) => p.value > 0 ? `S/.${p.value.toFixed(0)}` : '' },
+    }],
+  };
+
   // 8) Regresion / Proyeccion
   const regLineData = ventasMensuales.map((_, i) => parseFloat(regVentas.predict(i).toFixed(2)));
   const projLabels = [...monthlyData.map(m => m.shortLabel)];
@@ -475,6 +528,11 @@ export default function StatsPanel({ sales, investments }) {
         <KpiCard icon={IconTrendingUp} label="ROI" value={`${roi.toFixed(1)}%`} sub="Retorno s/ inversion" color={roi >= 0 ? '#059669' : '#e11d48'} bg={roi >= 0 ? '#e6f9e6' : '#fee6e6'} />
         <KpiCard icon={crecimiento >= 0 ? IconArrowUpRight : IconArrowDownRight} label="Crecimiento" value={`${crecimiento.toFixed(1)}%`} sub="CMGR mensual" color={crecimiento >= 0 ? '#059669' : '#e11d48'} bg={crecimiento >= 0 ? '#e6f9e6' : '#fee6e6'} />
       </div>
+
+      {/* CHART SEMANAL */}
+      <ChartCard>
+        <EChart option={chartSemanal} height={220} />
+      </ChartCard>
 
       {/* STATS DESCRIPTIVAS */}
       <Card padding="sm" radius="md" mb={14} style={{ border: `1px solid ${COLORS.borderLight}`, background: '#fafbff' }}>

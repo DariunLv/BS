@@ -275,6 +275,7 @@ dotlottie-wc { display: block; }
 }
 .modal-image-gallery img {
   scroll-snap-align: center; border-radius: 12px;
+  aspect-ratio: 1/1; object-fit: cover;
 }
 
 /* ========= LOADING SKELETON ========= */

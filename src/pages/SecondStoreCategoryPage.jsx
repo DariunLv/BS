@@ -137,7 +137,7 @@ export default function SecondStoreCategoryPage({ storeData, onBack }) {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
             {products.map((product, i) => (
-              <ProductCard key={product.id} product={product} index={i} />
+              <ProductCard key={product.id} product={product} index={i} siblingProducts={products} siblingIndex={i} />
             ))}
           </div>
         )}

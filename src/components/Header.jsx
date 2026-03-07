@@ -11,6 +11,17 @@ export default function Header({ onLogoClick, onBack }) {
   const isHome = location.pathname === '/';
   const isSecondStore = location.pathname.startsWith('/tienda-general');
 
+  const handleBack = () => {
+    onBack?.();
+    // Si hay historial previo dentro de la app, retroceder
+    // Si no (entrada directa / recarga), ir al home correspondiente
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate(isSecondStore ? '/tienda-general' : '/');
+    }
+  };
+
   return (
     <motion.header
       initial={{ y: -30, opacity: 0 }}
@@ -32,7 +43,7 @@ export default function Header({ onLogoClick, onBack }) {
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0 }}
-            onClick={() => { onBack?.(); navigate(-1); }}
+            onClick={handleBack}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: COLORS.navy }}
           >
             <IconChevronLeft size={24} />

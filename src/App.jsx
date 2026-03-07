@@ -24,8 +24,25 @@ export default function App() {
     try { return sessionStorage.getItem('benito_admin') === 'true'; } catch { return false; }
   });
   const [showLogin, setShowLogin] = useState(false);
-  const [storeData, setStoreData] = useState(() => loadStore());
-  const [isLoading, setIsLoading] = useState(true);
+  const LOCAL_CACHE_KEY = 'benito_cache_v2';
+
+  // Iniciar con caché local si existe → carga instantánea
+  const [storeData, setStoreData] = useState(() => {
+    try {
+      const cached = localStorage.getItem(LOCAL_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setCacheData(parsed);
+        return loadStore();
+      }
+    } catch {}
+    return loadStore();
+  });
+
+  // isLoading solo es true si NO hay caché local (primera visita)
+  const [isLoading, setIsLoading] = useState(() => {
+    try { return !localStorage.getItem(LOCAL_CACHE_KEY); } catch { return true; }
+  });
   const [currentStore, setCurrentStore] = useState('jewelry');
   const [navDirection, setNavDirection] = useState('fade');
   const clickCountRef = useRef(0);
@@ -38,12 +55,14 @@ export default function App() {
     setStoreData(fresh);
   }, []);
 
-  // Cargar datos de Firebase al iniciar
+  // Cargar Firebase en background — si hay caché, el usuario ya ve contenido
   useEffect(() => {
     loadFromFirebase().then((firebaseData) => {
       if (firebaseData) {
         setCacheData(firebaseData);
         setStoreData(loadStore());
+        // Guardar en localStorage para la próxima visita
+        try { localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(firebaseData)); } catch {}
       }
       setIsLoading(false);
     }).catch(() => setIsLoading(false));

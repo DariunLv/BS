@@ -1,25 +1,38 @@
 // src/components/ProductModal.jsx
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { Modal, Badge } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   IconDiamond, IconChevronLeft, IconChevronRight, IconRuler2,
   IconSparkles, IconPackage, IconBrandWhatsapp,
   IconHeart, IconX, IconInfoCircle, IconDroplet,
-  IconCategory,
+  IconCategory, IconZoomIn,
 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
-import { getWhatsappNumber } from '../utils/store';
+import { getWhatsappNumber, trackProductView } from '../utils/store';
 
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
-export default function ProductModal({ product, open, onClose, storeData = null, hidePacks = false }) {
+export default function ProductModal({ product: initialProduct, open, onClose, storeData = null, hidePacks = false, comboPrice = null, packPrice = null, packData = null, siblingProducts = null, siblingIndex = null }) {
   const [currentImage, setCurrentImage] = useState(0);
   const [selectedTalla, setSelectedTalla] = useState(null);
   const [liked, setLiked] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [pinchScale, setPinchScale] = useState(1);
+  const pinchStartDist = useRef(null);
+  const pinchStartScale = useRef(1);
+
   const [modalImgLoaded, setModalImgLoaded] = useState(false);
-  const [selectedPackDetail, setSelectedPackDetail] = useState(null); // pack abierto en detalle
+  const [selectedPackDetail, setSelectedPackDetail] = useState(null);
+
+  // Navegación entre productos hermanos
+  const [activeIndex, setActiveIndex] = useState(siblingIndex ?? 0);
+  const [swipeDir, setSwipeDir] = useState(0); // -1 = izq, 1 = der
+  const hasSiblings = siblingProducts && siblingProducts.length > 1;
+  const product = hasSiblings ? siblingProducts[activeIndex] : initialProduct;
+
   const galleryRef = useRef(null);
   const images = product?.images || [];
 
@@ -29,13 +42,26 @@ export default function ProductModal({ product, open, onClose, storeData = null,
       setSelectedTalla(null);
       setImageZoomed(false);
       setModalImgLoaded(false);
+      setLightboxOpen(false);
+      setPinchScale(1);
+      setActiveIndex(siblingIndex ?? 0);
     }
-  }, [open]);
+  }, [open, siblingIndex]);
+
+  // Reset imagen al cambiar de producto
+  useEffect(() => {
+    setCurrentImage(0);
+    setSelectedTalla(null);
+    setModalImgLoaded(false);
+  }, [activeIndex]);
 
   if (!product) return null;
 
   const nextImage = (e) => { e?.stopPropagation(); setModalImgLoaded(false); setCurrentImage((p) => (p + 1) % images.length); };
   const prevImage = (e) => { e?.stopPropagation(); setModalImgLoaded(false); setCurrentImage((p) => (p - 1 + images.length) % images.length); };
+
+  const nextProduct = () => { if (hasSiblings) { setSwipeDir(-1); setActiveIndex(p => (p + 1) % siblingProducts.length); } };
+  const prevProduct = () => { if (hasSiblings) { setSwipeDir(1);  setActiveIndex(p => (p - 1 + siblingProducts.length) % siblingProducts.length); } };
 
   const tallas = product.tallas || [];
   const tallasVaron = product.tallasVaron || [];
@@ -45,17 +71,13 @@ export default function ProductModal({ product, open, onClose, storeData = null,
   const hasTallas = isAnillos && (tallas.length > 0 || tallasVaron.length > 0 || tallasDama.length > 0);
   const hasSpecs = product.material || (product.platingType && product.plating);
 
-  // Todos los anillos registrados (para mostrar combos dentro de un pack)
   const allRings = storeData
     ? (storeData.products || []).filter(p => p.categoryId?.includes('anillo')).sort((a,b) => (a.sortOrder??9999)-(b.sortOrder??9999))
     : [];
-
-  // Todos los packs disponibles (para mostrar dentro de un anillo)
   const allPacks = storeData
     ? (storeData.products || []).filter(p => p.categoryId?.includes('pack')).sort((a,b) => (a.sortOrder??9999)-(b.sortOrder??9999))
     : [];
 
-  // Generar mensaje de WhatsApp
   const whatsappMsg = () => {
     const number = getWhatsappNumber();
     let msg = `Hola, buen día! Vi el catálogo y me interesa el siguiente producto:\n\n*${product.title}*`;
@@ -72,16 +94,16 @@ export default function ProductModal({ product, open, onClose, storeData = null,
     return { number, encoded: encodeURIComponent(msg) };
   };
 
-  // Swipe support
-  const [touchStart, setTouchStart] = useState(null);
-  const handleTouchStart = (e) => setTouchStart(e.touches[0].clientX);
-  const handleTouchEnd = (e) => {
-    if (touchStart === null) return;
-    const diff = touchStart - e.changedTouches[0].clientX;
+  // Swipe con ref para evitar closures obsoletas
+  const swipeTouchStartRef = useRef(null);
+  const handleSwipeTouchStart = (e) => { swipeTouchStartRef.current = e.touches[0].clientX; };
+  const handleSwipeTouchEnd = (e) => {
+    if (swipeTouchStartRef.current === null || !hasSiblings) return;
+    const diff = swipeTouchStartRef.current - e.changedTouches[0].clientX;
+    swipeTouchStartRef.current = null;
     if (Math.abs(diff) > 50) {
-      if (diff > 0) nextImage(); else prevImage();
+      if (diff > 0) nextProduct(); else prevProduct();
     }
-    setTouchStart(null);
   };
 
   return (
@@ -99,7 +121,11 @@ export default function ProductModal({ product, open, onClose, storeData = null,
         content: { background: COLORS.white },
       }}
     >
-      <div style={{ maxWidth: 600, margin: '0 auto', position: 'relative' }}>
+      <div
+        style={{ maxWidth: 600, margin: '0 auto', position: 'relative' }}
+        onTouchStart={handleSwipeTouchStart}
+        onTouchEnd={handleSwipeTouchEnd}
+      >
 
         {/* ====== HEADER FLOTANTE ====== */}
         <div style={{
@@ -120,6 +146,31 @@ export default function ProductModal({ product, open, onClose, storeData = null,
               color: COLORS.navy, fontWeight: 500,
             }}>Volver</span>
           </button>
+
+          {/* Dots de navegación entre productos */}
+          {hasSiblings && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={prevProduct}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
+                <IconChevronLeft size={16} color={COLORS.textMuted} />
+              </motion.button>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                {siblingProducts.map((_, i) => (
+                  <motion.div key={i}
+                    animate={{ width: i === activeIndex ? 18 : 6, background: i === activeIndex ? COLORS.orange : COLORS.borderLight }}
+                    transition={{ duration: 0.25 }}
+                    onClick={() => setActiveIndex(i)}
+                    style={{ height: 6, borderRadius: 3, cursor: 'pointer' }}
+                  />
+                ))}
+              </div>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={nextProduct}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
+                <IconChevronRight size={16} color={COLORS.textMuted} />
+              </motion.button>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8 }}>
             <motion.button
               whileTap={{ scale: 0.85 }}
@@ -138,8 +189,21 @@ export default function ProductModal({ product, open, onClose, storeData = null,
         </div>
 
         {/* ====== GALERIA DE IMAGENES ====== */}
-        <div style={{ position: 'relative', background: COLORS.offWhite }}
-          onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+        <AnimatePresence mode="wait" custom={swipeDir}>
+        <motion.div
+          key={`product-${activeIndex}`}
+          custom={swipeDir}
+          variants={{
+            enter: (dir) => ({ x: dir * -80, opacity: 0, scale: 0.97 }),
+            center: { x: 0, opacity: 1, scale: 1 },
+            exit:  (dir) => ({ x: dir * 80,  opacity: 0, scale: 0.97 }),
+          }}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ duration: 0.32, ease: [0.32, 0, 0.18, 1] }}
+        >
+        <div style={{ position: 'relative', background: COLORS.offWhite }}>
           {images.length > 0 ? (
             <>
               <AnimatePresence mode="wait">
@@ -149,7 +213,7 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.3 }}
-                  onClick={() => setImageZoomed(!imageZoomed)}
+                  onClick={() => setLightboxOpen(true)}
                   style={{ cursor: 'zoom-in', position: 'relative' }}
                 >
                   {!modalImgLoaded && (
@@ -164,11 +228,9 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                     onLoad={() => setModalImgLoaded(true)}
                     style={{
                       width: '100%',
-                      aspectRatio: imageZoomed ? 'auto' : '4/4',
-                      objectFit: imageZoomed ? 'contain' : 'cover',
+                      aspectRatio: '1/1',
+                      objectFit: 'cover',
                       display: 'block',
-                      maxHeight: imageZoomed ? '80vh' : 'none',
-                      background: imageZoomed ? '#f0f0f0' : 'transparent',
                       filter: modalImgLoaded ? 'none' : 'blur(12px)',
                       transform: modalImgLoaded ? 'scale(1)' : 'scale(1.03)',
                       transition: 'filter 0.5s ease, transform 0.5s ease',
@@ -176,6 +238,20 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                   />
                 </motion.div>
               </AnimatePresence>
+
+              {/* Zoom button */}
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={() => setLightboxOpen(true)}
+                style={{
+                  position: 'absolute', bottom: 12, right: 12, zIndex: 6,
+                  background: 'rgba(26,39,68,0.65)', backdropFilter: 'blur(8px)',
+                  border: 'none', borderRadius: 10, width: 34, height: 34,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <IconZoomIn size={16} color="white" />
+              </motion.button>
 
               {/* Navigation arrows */}
               {images.length > 1 && (
@@ -231,7 +307,7 @@ export default function ProductModal({ product, open, onClose, storeData = null,
               )}
             </>
           ) : (
-            <div className="no-image-placeholder" style={{ height: 320 }}>
+            <div className="no-image-placeholder" style={{ aspectRatio: '1/1', height: 'auto' }}>
               <IconDiamond size={48} color={COLORS.borderLight} />
               <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem', color: COLORS.textMuted }}>Sin imagen</span>
             </div>
@@ -277,7 +353,11 @@ export default function ProductModal({ product, open, onClose, storeData = null,
         <div style={{ padding: '20px 20px 32px' }}>
 
           {/* Titulo y precio */}
-          <div style={{ marginBottom: 16 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.08, ease: [0.22,1,0.36,1] }}
+            style={{ marginBottom: 16 }}>
             <h1 style={{
               fontFamily: '"Playfair Display", serif',
               fontSize: '1.55rem', fontWeight: 600,
@@ -338,18 +418,105 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                 </div>
               </div>
             )}
-          </div>
+
+            {/* ====== COMBO PACK: desglose + total cuando viene desde un pack ====== */}
+            {comboPrice !== null && packPrice !== null && (
+              <div style={{ marginTop: 14 }}>
+
+                {/* Banner del pack con imagen */}
+                {packData && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 0,
+                    borderRadius: 14, overflow: 'hidden',
+                    background: `linear-gradient(135deg, ${COLORS.navy} 0%, #2c4a80 100%)`,
+                    marginBottom: 10,
+                    boxShadow: '0 4px 16px rgba(26,39,68,0.15)',
+                    position: 'relative',
+                  }}>
+                    {packData.images?.[0] && (
+                      <div style={{ width: 80, flexShrink: 0, position: 'relative', overflow: 'hidden', aspectRatio: '1/1' }}>
+                        <img src={packData.images[0]} alt={packData.title}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.9 }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(26,39,68,0.4))' }} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, padding: '10px 14px' }}>
+                      <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 2 }}>
+                        Pack incluido
+                      </div>
+                      <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '0.9rem', fontWeight: 700, color: 'white', marginBottom: 4 }}>
+                        {packData.title}
+                      </div>
+                      <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 2,
+                        background: 'rgba(247,103,7,0.85)', padding: '2px 10px', borderRadius: 6 }}>
+                        <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: 'rgba(255,255,255,0.85)' }}>S/.</span>
+                        <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '0.95rem', fontWeight: 700, color: 'white' }}>{fmt(packPrice)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fila desglose anillo + pack */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <div style={{ flex: 1, padding: '8px 12px', borderRadius: 12,
+                    background: COLORS.offWhite, border: `1px solid ${COLORS.borderLight}`, textAlign: 'center' }}>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 2 }}>Anillo</div>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.88rem', color: COLORS.navy, fontWeight: 700 }}>S/.{fmt(product.price)}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', color: COLORS.textMuted, fontFamily: '"Outfit", sans-serif', fontSize: '1rem', fontWeight: 300 }}>+</div>
+                  <div style={{ flex: 1, padding: '8px 12px', borderRadius: 12,
+                    background: COLORS.offWhite, border: `1px solid ${COLORS.borderLight}`, textAlign: 'center' }}>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 2 }}>Pack</div>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.88rem', color: COLORS.navy, fontWeight: 700 }}>S/.{fmt(packPrice)}</div>
+                  </div>
+                </div>
+
+                {/* Total navy premium */}
+                <div style={{
+                  position: 'relative', overflow: 'hidden',
+                  background: `linear-gradient(135deg, ${COLORS.navy} 0%, #2c4a80 100%)`,
+                  borderRadius: 16, padding: '14px 20px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  boxShadow: '0 6px 24px rgba(26,39,68,0.22)',
+                }}>
+                  <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(212,165,116,0.1)', pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', bottom: -10, left: 10, width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(212,165,116,0.18)', border: '1px solid rgba(212,165,116,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: '0.9rem' }}>✦</span>
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: 'rgba(232,201,160,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 1 }}>Precio total</div>
+                      <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem', color: COLORS.goldLight, fontWeight: 500 }}>Anillo + Pack incluido</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', color: COLORS.goldLight, fontWeight: 500 }}>S/.</span>
+                    <span style={{ fontFamily: '"Playfair Display", serif', fontSize: '2rem', color: 'white', fontWeight: 700, lineHeight: 1 }}>{fmt(comboPrice)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
 
           {/* Linea decorativa */}
-          <div style={{
-            height: 2, borderRadius: 1, marginBottom: 20,
-            background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.gold}, transparent)`,
-            width: 80,
-          }} />
+          <motion.div
+            initial={{ scaleX: 0, opacity: 0 }}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{ duration: 0.4, delay: 0.15, ease: [0.22,1,0.36,1] }}
+            style={{
+              height: 2, borderRadius: 1, marginBottom: 20,
+              background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.gold}, transparent)`,
+              width: 80, transformOrigin: 'left',
+            }} />
 
           {/* ====== ESPECIFICACIONES (solo material y chapado) ====== */}
           {hasSpecs && (
-            <div style={{ marginBottom: 24 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.18, ease: [0.22,1,0.36,1] }}
+              style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: 8,
@@ -375,12 +542,16 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                   <SpecItem icon={IconDroplet} label={product.platingType} value={product.plating} color="#2c4a80" bg="#e6f0ff" />
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* ====== TALLAS ====== */}
           {hasTallas && (
-            <div style={{ marginBottom: 24 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.24, ease: [0.22,1,0.36,1] }}
+              style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <IconRuler2 size={14} color={COLORS.navy} />
                 <span style={{
@@ -480,12 +651,16 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                   })}
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
 
           {/* ====== DESCRIPCION ====== */}
           {product.description && (
-            <div style={{ marginBottom: 24 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.30, ease: [0.22,1,0.36,1] }}
+              style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <div style={{
                   width: 28, height: 28, borderRadius: 8,
@@ -504,10 +679,11 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                 lineHeight: 1.75, color: COLORS.textMuted,
                 padding: '14px 16px', borderRadius: 12,
                 background: COLORS.offWhite, border: `1px solid ${COLORS.borderLight}`,
+                whiteSpace: 'pre-wrap',
               }}>
                 {product.description}
               </p>
-            </div>
+            </motion.div>
           )}
 
           {/* ====== CONTENIDOS DEL PACK ====== */}
@@ -762,11 +938,17 @@ export default function ProductModal({ product, open, onClose, storeData = null,
           {!product.soldOut && product.showWhatsapp && (() => {
             const { number, encoded } = whatsappMsg();
             return (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.32, delay: 0.35, ease: [0.22,1,0.36,1] }}
+              >
               <motion.a
                 href={`https://wa.me/${number}?text=${encoded}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 whileTap={{ scale: 0.96 }}
+                whileHover={{ scale: 1.02, boxShadow: '0 10px 28px rgba(37,211,102,0.45)' }}
                 style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
                   background: 'linear-gradient(135deg, #25D366, #128C7E)',
@@ -781,13 +963,18 @@ export default function ProductModal({ product, open, onClose, storeData = null,
                 <IconBrandWhatsapp size={20} />
                 Consultar por WhatsApp
               </motion.a>
+              </motion.div>
             );
           })()}
         </div>
+        </motion.div>
+        </AnimatePresence>
       </div>
     </Modal>
 
     {/* ====== MODAL DE DETALLE DEL PACK (anidado) ====== */}
+
+
     {selectedPackDetail && (
       <PackDetailModal
         pack={selectedPackDetail}
@@ -795,7 +982,177 @@ export default function ProductModal({ product, open, onClose, storeData = null,
         ringProduct={product}
       />
     )}
+
+    {/* Lightbox fuera del portal del Modal — renderiza directo en body */}
+    <LightboxPortal
+      open={lightboxOpen}
+      images={images}
+      currentImage={currentImage}
+      setCurrentImage={setCurrentImage}
+      pinchScale={pinchScale}
+      setPinchScale={setPinchScale}
+      pinchStartDist={pinchStartDist}
+      pinchStartScale={pinchStartScale}
+      productTitle={product?.title}
+      onClose={() => { setLightboxOpen(false); setPinchScale(1); }}
+    />
     </>
+  );
+}
+
+
+/* ====== LIGHTBOX PORTAL — renderiza directo en document.body ====== */
+function LightboxPortal({ open, images, currentImage, setCurrentImage, pinchScale, setPinchScale, pinchStartDist, pinchStartScale, productTitle, onClose }) {
+  // Bloquear scroll del body mientras está abierto
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      pinchStartDist.current = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      pinchStartScale.current = pinchScale;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && pinchStartDist.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const newScale = Math.min(4, Math.max(1, pinchStartScale.current * (dist / pinchStartDist.current)));
+      setPinchScale(newScale);
+    }
+  };
+
+  return ReactDOM.createPortal(
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => { pinchStartDist.current = null; }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 99999,
+        background: 'rgba(0,0,0,0.97)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        touchAction: 'none',
+      }}
+    >
+      {/* X cerrar */}
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute', top: 16, right: 16, zIndex: 10,
+          background: 'rgba(255,255,255,0.15)', border: 'none',
+          borderRadius: '50%', width: 44, height: 44, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <IconX size={22} color="white" />
+      </button>
+
+      {/* Indicador de zoom */}
+      {pinchScale > 1 && (
+        <div style={{
+          position: 'absolute', top: 16, left: 16,
+          background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
+          padding: '4px 12px', borderRadius: 12,
+          fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem', color: 'white',
+        }}>
+          {pinchScale.toFixed(1)}x
+        </div>
+      )}
+
+      {/* Flechas navegación */}
+      {images.length > 1 && (
+        <>
+          <button
+            onClick={() => { setCurrentImage(p => (p - 1 + images.length) % images.length); setPinchScale(1); }}
+            style={{
+              position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 10,
+              background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 12,
+              width: 44, height: 44, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <IconChevronLeft size={24} color="white" />
+          </button>
+          <button
+            onClick={() => { setCurrentImage(p => (p + 1) % images.length); setPinchScale(1); }}
+            style={{
+              position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', zIndex: 10,
+              background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 12,
+              width: 44, height: 44, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <IconChevronRight size={24} color="white" />
+          </button>
+        </>
+      )}
+
+      {/* Imagen */}
+      <img
+        src={images[currentImage]}
+        alt={productTitle}
+        style={{
+          maxWidth: '100vw',
+          maxHeight: '90vh',
+          objectFit: 'contain',
+          transform: `scale(${pinchScale})`,
+          transition: pinchScale === 1 ? 'transform 0.2s' : 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          display: 'block',
+        }}
+        onDoubleClick={() => setPinchScale(p => p > 1 ? 1 : 2.5)}
+        draggable={false}
+      />
+
+      {/* Dots */}
+      {images.length > 1 && (
+        <div style={{
+          position: 'absolute', bottom: 24, left: 0, right: 0,
+          display: 'flex', justifyContent: 'center', gap: 8,
+        }}>
+          {images.map((_, i) => (
+            <div
+              key={i}
+              onClick={() => { setCurrentImage(i); setPinchScale(1); }}
+              style={{
+                width: i === currentImage ? 22 : 8, height: 8, borderRadius: 4,
+                background: i === currentImage ? 'white' : 'rgba(255,255,255,0.3)',
+                transition: 'all 0.25s', cursor: 'pointer',
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Hint doble tap */}
+      {pinchScale === 1 && (
+        <div style={{
+          position: 'absolute', bottom: images.length > 1 ? 56 : 24,
+          left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(255,255,255,0.1)',
+          padding: '3px 12px', borderRadius: 20,
+          fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
+          color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap',
+        }}>
+          Doble tap para zoom • Pellizca para ampliar
+        </div>
+      )}
+    </div>,
+    document.body
   );
 }
 
@@ -814,7 +1171,7 @@ function PackDetailModal({ pack, onClose, ringProduct }) {
 
         {/* Imagen */}
         {images.length > 0 && (
-          <div style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '4/3', background: '#f5f5f5' }}>
+          <div style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '1/1', background: '#f5f5f5' }}>
             <img src={images[currentImg]} alt={pack.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         )}
@@ -829,7 +1186,7 @@ function PackDetailModal({ pack, onClose, ringProduct }) {
 
         {/* Descripción */}
         {pack.description && (
-          <p style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem', color: COLORS.textMuted, lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem', color: COLORS.textMuted, lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>
             {pack.description}
           </p>
         )}

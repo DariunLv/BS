@@ -1,5 +1,6 @@
 // src/components/AccountingPanel.jsx
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 import {
   Button, TextInput, Select, Modal, ActionIcon, Badge, Card, Text,
   Textarea, SegmentedControl, Tooltip, Divider, Alert, NumberInput,
@@ -16,6 +17,7 @@ import {
   IconUserCircle, IconBriefcase, IconPercentage, IconArrowsSplit,
   IconMoneybag, IconInfoCircle, IconListDetails, IconChartDots,
   IconBuildingFactory, IconTool, IconAddressBook, IconPhone,
+  IconDownload, IconShare2,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -23,7 +25,7 @@ import {
   addInvestment, updateInvestment, deleteInvestment, getInvestments,
   getShareholders,
   addPendingSale, updatePendingSale, deletePendingSale, getPendingSales, completePendingSale,
-  addCapital, deleteCapital, getCapital,
+  addCapital, updateCapital, deleteCapital, getCapital,
   addFrecuentClient, deleteFrecuentClient, getFrecuentClients,
   getPagosAccionista, addPagoAccionista, deletePagoAccionista,
   generateId, imageToBase64, loadStore,
@@ -63,6 +65,10 @@ const SEGMENT_STYLES = {
 };
 
 /* ====== UTILIDADES ====== */
+function localToday() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 function getDaysUntil(dateStr) {
   if (!dateStr) return null;
   const today = new Date();
@@ -119,6 +125,8 @@ export default function AccountingPanel({ storeData, onRefresh }) {
   const [filterSocio, setFilterSocio] = useState('todos');
 
   // Mes actual como default
+  const summaryRef = useRef(null);
+
   const currentMonthKey = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -169,9 +177,13 @@ export default function AccountingPanel({ storeData, onRefresh }) {
 
   // Totales del mes (o general)
   const totalVentas = filteredSales.reduce((sum, s) => sum + (parseFloat(s.precio) || 0), 0);
-  const totalInversiones = filteredInvestments.reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
+  // Capital = herramientas/equipos que generan dinero → NO restan ganancia
+  const totalCapital = filteredInvestments.filter(i => i.esCapital).reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
+  // Gastos operativos = lo que sí resta ganancia (insumos, cajas, publicidad, etc.)
+  const totalGastosOperativos = filteredInvestments.filter(i => !i.esCapital).reduce((sum, i) => sum + (parseFloat(i.monto) || 0), 0);
+  const totalInversiones = totalGastosOperativos; // alias para compatibilidad
   const totalCostosVentas = filteredSales.reduce((sum, s) => sum + (parseFloat(s.costosAgregados) || 0), 0);
-  const ganancia = totalVentas - totalInversiones - totalCostosVentas;
+  const ganancia = totalVentas - totalGastosOperativos - totalCostosVentas;
 
   // Totales por socio (con splits) - del mes
   const ventasPorSocio = useMemo(() => {
@@ -183,7 +195,7 @@ export default function AccountingPanel({ storeData, onRefresh }) {
         if (amt > 0) { map[socio].totalVentas += amt; map[socio].countVentas += 1; }
       });
     });
-    filteredInvestments.forEach(inv => {
+    filteredInvestments.filter(inv => !inv.esCapital).forEach(inv => {
       ['Yefer', 'Frank'].forEach(socio => {
         const amt = getSocioAmount({ ...inv, precio: inv.monto, socio: inv.fuenteDinero || inv.socio }, socio);
         if (amt > 0) { map[socio].totalInversion += amt; map[socio].countInversion += 1; }
@@ -210,6 +222,22 @@ export default function AccountingPanel({ storeData, onRefresh }) {
     const found = availableMonths.find(m => m.value === filterMonth);
     return found ? found.label : filterMonth;
   }, [filterMonth, availableMonths]);
+
+  const handleExportSummary = async () => {
+    if (!summaryRef.current) return;
+    try {
+      const canvas = await html2canvas(summaryRef.current, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff',
+        logging: false,
+      });
+      const link = document.createElement('a');
+      link.download = `resumen-${currentMonthLabel.replace(/ /g, '-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      console.error('Export error:', e);
+    }
+  };
 
   const activePending = pendingSales.filter(p => !p.completed);
   const overduePending = activePending.filter(p => getDaysUntil(p.fechaEntrega) < 0);
@@ -273,13 +301,26 @@ export default function AccountingPanel({ storeData, onRefresh }) {
       </Card>
 
       {/* RESUMEN FINANCIERO DEL MES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 8 }}>
+      <div ref={summaryRef} style={{ background: 'white', borderRadius: 14, padding: 2 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 8 }}>
         <SummaryCard icon={IconCash} label="Ventas" value={totalVentas} color="#2d8a2d" bg="#e6f9e6" border="#b8e6b8" />
-        <SummaryCard icon={IconReportMoney} label="Gastos" value={totalInversiones + totalCostosVentas} color="#c92a2a" bg="#fee6e6" border="#e6b8b8" />
+        <SummaryCard icon={IconReportMoney} label="Gastos op." value={totalGastosOperativos + totalCostosVentas} color="#c92a2a" bg="#fee6e6" border="#e6b8b8" />
         <SummaryCard icon={IconScale} label="Ganancia" value={ganancia}
           color={ganancia >= 0 ? '#2c4a80' : '#e8590c'}
           bg={ganancia >= 0 ? '#e6f0ff' : '#fff0e6'}
-          border={ganancia >= 0 ? '#b8d4e6' : '#e6c8b8'} />
+          border={ganancia >= 0 ? '#b8d4e6' : '#e6c8b8'}
+          style={{ gridColumn: 'span 2' }} />
+      </div>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <button onClick={handleExportSummary}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
+            background: COLORS.offWhite, border: `1px solid ${COLORS.borderLight}`,
+            borderRadius: 20, cursor: 'pointer', fontFamily: '"Outfit", sans-serif',
+            fontSize: '0.65rem', color: COLORS.navy, fontWeight: 500 }}>
+          <IconDownload size={12} color={COLORS.navy} />
+          Exportar resumen
+        </button>
       </div>
 
       {/* Fondo accionista */}
@@ -373,14 +414,16 @@ export default function AccountingPanel({ storeData, onRefresh }) {
 }
 
 /* ====== SUMMARY CARD ====== */
-function SummaryCard({ icon: Icon, label, value, color, bg, border }) {
-  return (
-    <Card padding="xs" radius="md" style={{ background: bg, border: `1px solid ${border}`, textAlign: 'center' }}>
+function SummaryCard({ icon: Icon, label, value, color, bg, border, tooltip }) {
+  const card = (
+    <Card padding="xs" radius="md" style={{ background: bg, border: `1px solid ${border}`, textAlign: 'center', cursor: tooltip ? 'help' : 'default' }}>
       <Icon size={18} color={color} style={{ margin: '0 auto 2px' }} />
       <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem' }}>{label}</Text>
       <Text size="sm" fw={700} style={{ color, fontFamily: '"Outfit", sans-serif' }}>S/. {value.toFixed(2)}</Text>
     </Card>
   );
+  if (tooltip) return <Tooltip label={tooltip} multiline w={200} withArrow position="bottom" styles={{ tooltip: { fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem' } }}>{card}</Tooltip>;
+  return card;
 }
 
 /* ====== SPLIT DISPLAY (muestra reparto entre socios) ====== */
@@ -493,15 +536,21 @@ function SaleListItem({ sale, onEdit, onDelete }) {
    INVERSIONES / GASTOS SECTION
    ================================================================ */
 function InversionesSection({ investments, onAdd, onEdit, onDelete }) {
+  const gastosOp = investments.filter(i => !i.esCapital);
+  const capitalItems = investments.filter(i => i.esCapital);
+
   const totalPorCategoria = useMemo(() => {
     const map = {};
-    investments.forEach(inv => { const c = inv.categoria || 'Otros'; map[c] = (map[c] || 0) + (parseFloat(inv.monto) || 0); });
+    gastosOp.forEach(inv => { const c = inv.categoria || 'Otros'; map[c] = (map[c] || 0) + (parseFloat(inv.monto) || 0); });
     return map;
-  }, [investments]);
-  const sorted = [...investments].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  }, [gastosOp]);
+  const sortedGastos = [...gastosOp].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const sortedCapital = [...capitalItems].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const totalCapitalVal = capitalItems.reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
 
   return (
     <div>
+      {/* Resumen por categoría */}
       {Object.keys(totalPorCategoria).length > 0 && (
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 10 }}>
           {Object.entries(totalPorCategoria).map(([cat, total]) => (
@@ -511,42 +560,61 @@ function InversionesSection({ investments, onAdd, onEdit, onDelete }) {
           ))}
         </div>
       )}
+
       <Button leftSection={<IconPlus size={14} />} onClick={onAdd}
-        radius="xl" size="xs" style={{ background: '#c92a2a', marginBottom: 10, fontFamily: '"Outfit", sans-serif' }}>
+        radius="xl" size="xs" style={{ background: '#c92a2a', marginBottom: 12, fontFamily: '"Outfit", sans-serif' }}>
         Registrar Gasto
       </Button>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <AnimatePresence>
-          {sorted.map((inv) => (
-            <InvestmentListItem key={inv.id} investment={inv} onEdit={() => onEdit(inv)} onDelete={() => onDelete(inv.id)} />
-          ))}
-        </AnimatePresence>
-        {investments.length === 0 && <EmptyState icon={IconPackage} text="No hay gastos registrados" />}
+
+      {/* GASTOS OPERATIVOS */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <IconReportMoney size={14} color="#c92a2a" />
+          <Text size="xs" fw={700} style={{ fontFamily: '"Outfit", sans-serif', color: '#c92a2a', fontSize: '0.72rem' }}>
+            Gastos operativos
+          </Text>
+          <Text size="xs" c="dimmed" style={{ fontSize: '0.6rem', marginLeft: 'auto' }}>
+            Restan ganancia
+          </Text>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <AnimatePresence>
+            {sortedGastos.map((inv) => (
+              <InvestmentListItem key={inv.id} investment={inv} onEdit={() => onEdit(inv)} onDelete={() => onDelete(inv.id)} />
+            ))}
+          </AnimatePresence>
+          {sortedGastos.length === 0 && <EmptyState icon={IconPackage} text="No hay gastos operativos" />}
+        </div>
       </div>
     </div>
   );
 }
 
-function InvestmentListItem({ investment, onEdit, onDelete }) {
+function InvestmentListItem({ investment, onEdit, onDelete, isCapital }) {
   const fechaStr = investment.fecha ? new Date(investment.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-  const iconMap = { 'Insumos': IconPackage, 'Cajas': IconBox, 'Reabastecer stock': IconPackage, 'Empaques': IconBox, 'Publicidad': IconChartBar, 'Envios': IconTruckDelivery };
-  const Ic = iconMap[investment.categoria] || IconReportMoney;
+  const iconMap = { 'Insumos': IconPackage, 'Cajas': IconBox, 'Reabastecer stock': IconPackage, 'Empaques': IconBox, 'Publicidad': IconChartBar, 'Envios': IconTruckDelivery, 'Herramientas': IconTool };
+  const Ic = iconMap[investment.categoria] || (isCapital ? IconTool : IconReportMoney);
   const fuente = investment.fuenteDinero || investment.socio || '';
   const fuenteColor = fuente === 'Yefer' ? 'blue' : fuente === 'Frank' ? 'orange' : fuente === 'Ambos' ? 'grape' : fuente === 'Accionista' ? 'cyan' : 'gray';
+  const cardBg = isCapital ? '#faf8ff' : COLORS.white;
+  const iconBg = isCapital ? '#ede9ff' : '#fee6e6';
+  const iconColor = isCapital ? '#7c3aed' : '#c92a2a';
+  const amountColor = isCapital ? '#7c3aed' : '#c92a2a';
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -80 }}>
-      <Card padding="xs" radius="md" style={{ border: `1px solid ${COLORS.borderLight}`, background: COLORS.white }}>
+      <Card padding="xs" radius="md" style={{ border: `1px solid ${isCapital ? '#d8c8f8' : COLORS.borderLight}`, background: cardBg }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ width: 38, height: 38, borderRadius: 8, background: '#fee6e6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Ic size={16} color="#c92a2a" />
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Ic size={16} color={iconColor} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <Text size="xs" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{investment.descripcion || 'Sin descripcion'}</Text>
             <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
               <Text size="xs" c="dimmed" style={{ fontSize: '0.62rem' }}>{fechaStr}</Text>
-              {investment.categoria && <Badge size="xs" variant="light" color="red" radius="xl" style={{ fontSize: '0.55rem' }}>{investment.categoria}</Badge>}
-              {investment.tipoBien && <Badge size="xs" variant="light" color={investment.tipoBien === 'acumulado' ? 'teal' : 'grape'} radius="xl" style={{ fontSize: '0.52rem', textTransform: 'none' }}>{investment.tipoBien === 'acumulado' ? 'Acumulado' : 'Unico'}</Badge>}
+              {investment.categoria && <Badge size="xs" variant="light" color={isCapital ? 'violet' : 'red'} radius="xl" style={{ fontSize: '0.55rem' }}>{investment.categoria}</Badge>}
+              {isCapital && <Badge size="xs" variant="filled" radius="xl" style={{ fontSize: '0.5rem', background: '#7c3aed', padding: '0 5px' }}>Capital</Badge>}
+              {investment.tipoBien && !isCapital && <Badge size="xs" variant="light" color={investment.tipoBien === 'acumulado' ? 'teal' : 'grape'} radius="xl" style={{ fontSize: '0.52rem', textTransform: 'none' }}>{investment.tipoBien === 'acumulado' ? 'Acumulado' : 'Unico'}</Badge>}
               {fuente && <Badge size="xs" variant="dot" color={fuenteColor} radius="xl" style={{ fontSize: '0.55rem', textTransform: 'none' }}>{fuente === 'Accionista' ? 'Fondo accionista' : fuente}</Badge>}
             </div>
             {investment.fuenteDinero === 'Ambos' && (
@@ -556,7 +624,9 @@ function InvestmentListItem({ investment, onEdit, onDelete }) {
               </div>
             )}
           </div>
-          <Text size="xs" fw={700} style={{ color: '#c92a2a', fontFamily: '"Outfit", sans-serif', flexShrink: 0 }}>-S/.{investment.monto || '0'}</Text>
+          <Text size="xs" fw={700} style={{ color: amountColor, fontFamily: '"Outfit", sans-serif', flexShrink: 0 }}>
+            {isCapital ? '' : '-'}S/.{investment.monto || '0'}
+          </Text>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <ActionIcon variant="light" color="blue" radius="xl" size="xs" onClick={onEdit}><IconEdit size={11} /></ActionIcon>
             <ActionIcon variant="light" color="red" radius="xl" size="xs" onClick={onDelete}><IconTrash size={11} /></ActionIcon>
@@ -691,7 +761,7 @@ function ClientesFrecuentesSection({ clients, onRefresh }) {
 
   const handleAddClient = () => {
     if (!formName.trim()) { notifications.show({ title: 'Error', message: 'El nombre es obligatorio', color: 'red' }); return; }
-    addFrecuentClient({ id: generateId(), nombre: formName.trim(), telefono: formPhone.trim(), foto: formFoto, fecha: new Date().toISOString().split('T')[0] });
+    addFrecuentClient({ id: generateId(), nombre: formName.trim(), telefono: formPhone.trim(), foto: formFoto, fecha: localToday() });
     setFormName(''); setFormPhone(''); setFormFoto(''); setShowForm(false);
     onRefresh();
     notifications.show({ title: 'Agregado', message: 'Cliente frecuente registrado', color: 'green' });
@@ -869,6 +939,7 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
   const ACCIONISTA = { nombre: 'Giovany', monto: 2400, porcentaje: 15 };
   const [newCapital, setNewCapital] = useState('');
   const [newCapitalVal, setNewCapitalVal] = useState('');
+  const [editingCapital, setEditingCapital] = useState(null); // {id, nombre, valor}
 
   // Fondo: total invertido - usado en gastos/costos del accionista
   const invUsado = investments.filter(i => i.fuenteDinero === 'Accionista').reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
@@ -916,7 +987,7 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
       monto: m.parteGiovany,
       mitadYefer: m.mitadCada,
       mitadFrank: m.mitadCada,
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: localToday(),
     });
     onRefresh();
     notifications.show({ title: 'Pagado', message: `${ACCIONISTA.nombre} - ${m.label}: S/.${m.parteGiovany.toFixed(2)}`, color: 'green' });
@@ -930,10 +1001,18 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
 
   const handleAddCapital = () => {
     if (!newCapital.trim()) return;
-    addCapital({ id: generateId(), nombre: newCapital.trim(), valor: newCapitalVal || '0', fecha: new Date().toISOString().split('T')[0] });
+    addCapital({ id: generateId(), nombre: newCapital.trim(), valor: newCapitalVal || '0', fecha: localToday() });
     setNewCapital(''); setNewCapitalVal('');
     onRefresh();
     notifications.show({ title: 'Agregado', message: 'Capital registrado', color: 'green' });
+  };
+
+  const handleSaveEditCapital = () => {
+    if (!editingCapital || !editingCapital.nombre.trim()) return;
+    updateCapital(editingCapital.id, { nombre: editingCapital.nombre.trim(), valor: editingCapital.valor || '0' });
+    setEditingCapital(null);
+    onRefresh();
+    notifications.show({ title: 'Actualizado', message: 'Capital actualizado', color: 'green' });
   };
 
   return (
@@ -1058,31 +1137,52 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
       <Divider my={14} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <IconTool size={16} color={COLORS.navy} />
-        <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy }}>Capital (Herramientas y Maquinas)</Text>
+        <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy, flex: 1 }}>Capital (Herramientas y Maquinas)</Text>
+        {(capital || []).length > 0 && (
+          <Badge size="sm" variant="filled" radius="xl" style={{ background: '#7c3aed', fontSize: '0.65rem' }}>
+            S/.{(capital || []).reduce((s, c) => s + (parseFloat(c.valor) || 0), 0).toFixed(2)}
+          </Badge>
+        )}
       </div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         <TextInput size="xs" placeholder="Ej: Grabadora laser" value={newCapital}
           onChange={(e) => setNewCapital(e.currentTarget.value)} radius="md" style={{ flex: 1 }}
           onKeyDown={(e) => { if (e.key === 'Enter') handleAddCapital(); }} />
         <TextInput size="xs" placeholder="Valor S/." value={newCapitalVal}
-          onChange={(e) => setNewCapitalVal(e.currentTarget.value)} radius="md" style={{ width: 90 }} />
+          onChange={(e) => setNewCapitalVal(e.currentTarget.value)} radius="md" style={{ width: 90 }}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleAddCapital(); }} />
         <Button size="xs" radius="md" style={{ background: COLORS.navy }} onClick={handleAddCapital}>+</Button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {(capital || []).map(c => (
-          <Card key={c.id} padding="xs" radius="md" style={{ border: `1px solid ${COLORS.borderLight}` }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f0eeff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <IconBuildingFactory size={14} color="#7c3aed" />
+          <Card key={c.id} padding="xs" radius="md" style={{ border: `1px solid ${editingCapital?.id === c.id ? '#c4b5fd' : COLORS.borderLight}`, background: editingCapital?.id === c.id ? '#faf8ff' : COLORS.white }}>
+            {editingCapital?.id === c.id ? (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <TextInput size="xs" value={editingCapital.nombre}
+                  onChange={(e) => setEditingCapital(p => ({ ...p, nombre: e.currentTarget.value }))}
+                  radius="md" style={{ flex: 1 }} placeholder="Nombre" />
+                <TextInput size="xs" value={editingCapital.valor}
+                  onChange={(e) => setEditingCapital(p => ({ ...p, valor: e.currentTarget.value }))}
+                  radius="md" style={{ width: 80 }} placeholder="S/." />
+                <ActionIcon variant="filled" color="violet" radius="xl" size="sm" onClick={handleSaveEditCapital}><IconCheck size={12} /></ActionIcon>
+                <ActionIcon variant="light" color="gray" radius="xl" size="sm" onClick={() => setEditingCapital(null)}><IconX size={12} /></ActionIcon>
               </div>
-              <div style={{ flex: 1 }}>
-                <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif' }}>{c.nombre}</Text>
-                <Text size="xs" c="dimmed" style={{ fontSize: '0.58rem' }}>{c.fecha}</Text>
+            ) : (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f0eeff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IconBuildingFactory size={14} color="#7c3aed" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif' }}>{c.nombre}</Text>
+                  <Text size="xs" c="dimmed" style={{ fontSize: '0.58rem' }}>{c.fecha}</Text>
+                </div>
+                {c.valor && c.valor !== '0' && <Text size="xs" fw={600} style={{ color: '#7c3aed' }}>S/.{c.valor}</Text>}
+                <ActionIcon variant="light" color="blue" radius="xl" size="xs"
+                  onClick={() => setEditingCapital({ id: c.id, nombre: c.nombre, valor: c.valor || '' })}><IconEdit size={10} /></ActionIcon>
+                <ActionIcon variant="light" color="red" radius="xl" size="xs"
+                  onClick={() => { deleteCapital(c.id); onRefresh(); }}><IconTrash size={10} /></ActionIcon>
               </div>
-              {c.valor && c.valor !== '0' && <Text size="xs" fw={600} style={{ color: '#7c3aed' }}>S/.{c.valor}</Text>}
-              <ActionIcon variant="light" color="red" radius="xl" size="xs"
-                onClick={() => { deleteCapital(c.id); onRefresh(); }}><IconTrash size={10} /></ActionIcon>
-            </div>
+            )}
           </Card>
         ))}
         {(!capital || capital.length === 0) && <EmptyState icon={IconTool} text="No hay capital registrado" />}
@@ -1114,7 +1214,7 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
         rebaja: sale.rebaja || '', montoRebaja: sale.montoRebaja || '',
       });
     } else {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localToday();
       setForm({ producto: '', fecha: today, precio: '', foto: '', socio: '', medioEntrega: 'Contra entrega', categoryId: '', productId: '', splitYefer: '', splitFrank: '', costosAgregados: '', detalleCostos: '', fuenteCostos: '', rebaja: '', montoRebaja: '' });
     }
   }, [sale, open]);
@@ -1345,7 +1445,7 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
 function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAccionista, onClose, onSave }) {
   const [form, setForm] = useState({
     descripcion: '', fecha: '', monto: '', categoria: '', nota: '',
-    fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '',
+    fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '', esCapital: false,
   });
 
   React.useEffect(() => {
@@ -1355,11 +1455,11 @@ function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAcc
         monto: investment.monto || '', categoria: investment.categoria || '',
         nota: investment.nota || '', fuenteDinero: investment.fuenteDinero || investment.socio || '',
         splitYefer: investment.splitYefer || '', splitFrank: investment.splitFrank || '',
-        tipoBien: investment.tipoBien || '',
+        tipoBien: investment.tipoBien || '', esCapital: !!investment.esCapital,
       });
     } else {
-      const today = new Date().toISOString().split('T')[0];
-      setForm({ descripcion: '', fecha: today, monto: '', categoria: '', nota: '', fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '' });
+      const today = localToday();
+      setForm({ descripcion: '', fecha: today, monto: '', categoria: '', nota: '', fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '', esCapital: false });
     }
   }, [investment, open]);
 
@@ -1435,7 +1535,11 @@ function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAcc
         </div>
 
         <Select label="Categoria de gasto" placeholder="Seleccionar" value={form.categoria}
-          onChange={(v) => setForm(p => ({ ...p, categoria: v || '' }))}
+          onChange={(v) => setForm(p => ({
+            ...p, categoria: v || '',
+            // Si selecciona Herramientas → auto-marcar como capital
+            esCapital: v === 'Herramientas' ? true : p.esCapital,
+          }))}
           data={CATEGORIAS_INVERSION.map(c => ({ value: c, label: c }))}
           radius="md" clearable leftSection={<IconBox size={16} />} />
 

@@ -47,8 +47,9 @@ export function loadStore() {
 
 export function saveStore(data) {
   cacheData = data;
+  // Actualizar caché local para que la próxima visita sea instantánea
+  try { localStorage.setItem('benito_cache_v2', JSON.stringify(data)); } catch {}
   // Solo guardar metadatos en el doc principal (sin productos ni imágenes)
-  // Los productos se guardan individualmente con saveProductToFirebase
   const { products, ...meta } = data;
   saveToFirebase({ ...meta, products: [] }); // products vacio en meta
 }
@@ -167,8 +168,34 @@ export function getOfferProducts() {
   return data.products.filter(p => p.categoryId === 'ofertas');
 }
 
+/* ====== HISTORIAL DE PRECIOS (localStorage) ====== */
+const PRICE_HISTORY_KEY = 'benito_price_history';
+
+export function recordPriceChange(productId, productTitle, oldPrice, newPrice) {
+  if (!productId || oldPrice === newPrice) return;
+  try {
+    const raw = localStorage.getItem(PRICE_HISTORY_KEY);
+    const history = raw ? JSON.parse(raw) : {};
+    if (!history[productId]) history[productId] = [];
+    history[productId].unshift({
+      date: new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      from: parseFloat(oldPrice) || 0,
+      to: parseFloat(newPrice) || 0,
+      title: productTitle,
+    });
+    // Máximo 10 entradas por producto
+    history[productId] = history[productId].slice(0, 10);
+    localStorage.setItem(PRICE_HISTORY_KEY, JSON.stringify(history));
+  } catch {}
+}
+
 export function addProduct(product) {
   const data = loadStore();
+  // Auto-registrar fecha de creacion si no tiene
+  if (!product.createdAt) {
+    const d = new Date();
+    product.createdAt = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
   data.products.push(product);
   cacheData = data;
   // Guardar metadatos del producto (sin imágenes) y las imágenes por separado
@@ -182,7 +209,12 @@ export function updateProduct(id, updates) {
   const data = loadStore();
   const idx = data.products.findIndex(p => p.id === id);
   if (idx !== -1) {
-    data.products[idx] = { ...data.products[idx], ...updates };
+    const prev = data.products[idx];
+    // Detectar cambio de precio y registrarlo
+    if (updates.price !== undefined && String(updates.price) !== String(prev.price)) {
+      recordPriceChange(id, prev.title || updates.title || '', prev.price, updates.price);
+    }
+    data.products[idx] = { ...prev, ...updates };
     cacheData = data;
     const { images, ...productMeta } = data.products[idx];
     saveProductToFirebase(productMeta);
@@ -546,4 +578,44 @@ export function imageToBase64(file) {
  */
 export async function uploadImage(file) {
   return await imageToBase64(file);
+}
+export function updateCapital(id, updates) {
+  const data = loadStore();
+  if (!data.capital) data.capital = [];
+  data.capital = data.capital.map(c => c.id === id ? { ...c, ...updates } : c);
+  saveStore(data);
+  return data;
+}
+
+/* ====== VISTAS DE PRODUCTOS (localStorage) ====== */
+const VIEWS_KEY = 'benito_product_views';
+
+export function trackProductView(productId) {
+  if (!productId) return;
+  try {
+    const raw = localStorage.getItem(VIEWS_KEY);
+    const views = raw ? JSON.parse(raw) : {};
+    views[productId] = (views[productId] || 0) + 1;
+    localStorage.setItem(VIEWS_KEY, JSON.stringify(views));
+  } catch {}
+}
+
+export function getProductViews() {
+  try {
+    const raw = localStorage.getItem(VIEWS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+export function resetProductViews() {
+  try { localStorage.removeItem(VIEWS_KEY); } catch {}
+}
+
+
+export function getPriceHistory(productId) {
+  try {
+    const raw = localStorage.getItem(PRICE_HISTORY_KEY);
+    const history = raw ? JSON.parse(raw) : {};
+    return history[productId] || [];
+  } catch { return []; }
 }

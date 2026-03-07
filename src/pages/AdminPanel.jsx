@@ -6,7 +6,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  IconPlus, IconTrash, IconEdit, IconPhoto, IconLogout, IconCategory,
+  IconPlus, IconTrash, IconEdit, IconEye, IconHistory, IconPhoto, IconLogout, IconCategory,
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
   IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort,
@@ -19,6 +19,7 @@ import {
   updateShalomImage, updateWhatsappNumber, getWhatsappNumber,
   generateId, uploadImage, changePassword, loadStore, saveStore,
   reorderProducts, reorderCategories,
+  getProductViews, getPriceHistory,
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
 import AccountingPanel from '../components/AccountingPanel';
@@ -443,11 +444,15 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
 function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOut }) {
   const cat = categories.find(c => c.id === product.categoryId);
+  const [showHistory, setShowHistory] = useState(false);
+  const views = getProductViews()[product.id] || 0;
+  const priceHistory = getPriceHistory(product.id);
+
   return (
     <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }}>
       <Card padding="sm" radius="md" style={{ border: `1px solid ${COLORS.borderLight}`, background: COLORS.white }}>
         <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', background: COLORS.offWhite, flexShrink: 0 }}>
+          <div style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', background: COLORS.offWhite, flexShrink: 0, aspectRatio: '1/1' }}>
             {product.images?.[0] ? (
               <img src={product.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
@@ -462,8 +467,25 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
               {product.soldOut && <Badge size="xs" color="red" variant="filled">Agotado</Badge>}
             </div>
             <Text size="xs" c="dimmed" lineClamp={1}>{cat?.name || 'Sin categoría'}</Text>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <Text size="sm" fw={600} style={{ color: COLORS.orange }}>S/. {product.price || '0.00'}</Text>
+              {views > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3,
+                  background: '#e6f0ff', padding: '2px 7px', borderRadius: 10 }}>
+                  <IconEye size={10} color="#2c4a80" />
+                  <span style={{ fontSize: '0.58rem', color: '#2c4a80', fontFamily: '"Outfit", sans-serif', fontWeight: 600 }}>{views}</span>
+                </div>
+              )}
+              {priceHistory.length > 0 && (
+                <div onClick={() => setShowHistory(!showHistory)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer',
+                  background: '#fff4e6', padding: '2px 7px', borderRadius: 10 }}>
+                  <IconHistory size={10} color={COLORS.orange} />
+                  <span style={{ fontSize: '0.58rem', color: COLORS.orange, fontFamily: '"Outfit", sans-serif', fontWeight: 600 }}>
+                    {priceHistory.length} cambio{priceHistory.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
               {(product.tallasVaron?.length > 0 || product.tallasDama?.length > 0) && (
                 <div style={{ display: 'flex', gap: 4 }}>
                   {product.tallasVaron?.length > 0 && (
@@ -486,6 +508,31 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
             <ActionIcon variant={product.soldOut ? 'filled' : 'light'} color="orange" radius="xl" size="sm" onClick={onToggleSoldOut}><IconCheck size={14} /></ActionIcon>
           </div>
         </div>
+        {/* Historial de precios expandible */}
+        <AnimatePresence>
+          {showHistory && priceHistory.length > 0 && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }}
+              style={{ overflow: 'hidden' }}>
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${COLORS.borderLight}` }}>
+                <Text size="xs" fw={600} mb={4} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.textMuted, fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Historial de precios
+                </Text>
+                {priceHistory.map((h, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '3px 0', borderBottom: i < priceHistory.length - 1 ? `1px solid ${COLORS.borderLight}` : 'none' }}>
+                    <Text size="xs" c="dimmed" style={{ fontSize: '0.6rem' }}>{h.date}</Text>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Text size="xs" style={{ fontSize: '0.65rem', color: '#c92a2a', textDecoration: 'line-through' }}>S/.{parseFloat(h.from).toFixed(2)}</Text>
+                      <span style={{ fontSize: '0.6rem', color: COLORS.textMuted }}>→</span>
+                      <Text size="xs" fw={600} style={{ fontSize: '0.65rem', color: '#2d8a2d' }}>S/.{parseFloat(h.to).toFixed(2)}</Text>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
     </motion.div>
   );
@@ -497,7 +544,7 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {category.image ? (
-            <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', aspectRatio: '1/1' }}>
               <img src={category.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           ) : (
@@ -633,7 +680,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
               }}>
               {/* Imagen real de la categoría */}
               <div style={{
-                width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                width: 44, height: 44, borderRadius: 10, flexShrink: 0, aspectRatio: '1/1',
                 background: `linear-gradient(135deg, ${COLORS.navyLight}, ${COLORS.navy})`,
                 overflow: 'hidden', border: `1px solid ${COLORS.borderLight}`,
               }}>
@@ -836,7 +883,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
             {form.images.length > 0 && (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                 {form.images.map((img, i) => (
-                  <div key={i} style={{ position: 'relative', width: 80, height: 80 }}>
+                  <div key={i} style={{ position: 'relative', width: 80, height: 80, aspectRatio: '1/1' }}>
                     <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} />
                     <ActionIcon size="xs" variant="filled" color="red" radius="xl"
                       style={{ position: 'absolute', top: -6, right: -6 }} onClick={() => removeImage(i)}><IconX size={10} /></ActionIcon>
@@ -932,7 +979,7 @@ function CategoryFormModal({ open, category, storeType, onClose, onSave }) {
         <div>
           <Text size="sm" fw={500} mb={6}>Imagen de categoría</Text>
           {form.image && (
-            <div style={{ position: 'relative', width: 100, height: 100, marginBottom: 8 }}>
+            <div style={{ position: 'relative', width: 100, height: 100, marginBottom: 8, aspectRatio: '1/1' }}>
               <img src={form.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }} />
               <ActionIcon size="xs" variant="filled" color="red" radius="xl"
                 style={{ position: 'absolute', top: -6, right: -6 }}
