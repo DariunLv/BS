@@ -343,3 +343,26 @@ dotlottie-wc { display: block; }
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(26, 39, 68, 0.08);
 }
+/* ── Rendimiento: hints para el compositor del navegador ── */
+.product-card {
+  contain: layout style;
+  will-change: transform;
+}
+
+/* Optimizar scroll del body */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeSpeed;
+}
+
+/* Acelerar transformaciones de motion */
+[data-framer-motion] {
+  will-change: transform, opacity;
+}
+
+/* Forzar aceleración GPU en imágenes del modal */
+img {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}

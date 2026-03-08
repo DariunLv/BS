@@ -45,13 +45,34 @@ export function loadStore() {
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 
+// Debounce Firebase: espera 600ms de inactividad antes de enviar
+// Evita múltiples writes seguidos (ej: editar un campo caracter a caracter)
+let _saveTimer = null;
+let _pendingData = null;
+
 export function saveStore(data) {
+  data._lastModified = Date.now();
   cacheData = data;
-  // Actualizar caché local para que la próxima visita sea instantánea
+  // Siempre actualizar caché local de inmediato (instantáneo)
   try { localStorage.setItem('benito_cache_v2', JSON.stringify(data)); } catch {}
-  // Solo guardar metadatos en el doc principal (sin productos ni imágenes)
-  const { products, ...meta } = data;
-  saveToFirebase({ ...meta, products: [] }); // products vacio en meta
+  // Firebase: debounce de 600ms
+  _pendingData = data;
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    const toSave = _pendingData;
+    _saveTimer = null;
+    _pendingData = null;
+    if (!toSave) return;
+    const { products, ...meta } = toSave;
+    const doSave = (attempt = 1) => {
+      saveToFirebase({ ...meta, products: [] })
+        .catch(err => {
+          console.warn('Firebase save attempt', attempt, 'failed:', err);
+          if (attempt < 4) setTimeout(() => doSave(attempt + 1), 1500 * attempt);
+        });
+    };
+    doSave();
+  }, 600);
 }
 
 export function setCacheData(data) {

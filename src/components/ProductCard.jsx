@@ -28,7 +28,7 @@ export { ProductCardSkeleton };
 // Formatea precio siempre con 2 decimales: 40 → "40.00", 40.5 → "40.50"
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
-export default function ProductCard({ product, index = 0, showOfferTag = false, storeData = null, hidePacks = false, comboPrice = null, packPrice = null, packData = null, siblingProducts = null, siblingIndex = null }) {
+const ProductCard = React.memo(function ProductCard({ product, index = 0, showOfferTag = false, storeData = null, hidePacks = false, comboPrice = null, packPrice = null, packData = null, siblingProducts = null, siblingIndex = null }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -58,15 +58,15 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
     <>
       <motion.div
         className="product-card"
-        initial={{ opacity: 0, y: 40, scale: 0.92 }}
+        initial={{ opacity: 0, y: 22, scale: 0.96 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        viewport={{ once: true, margin: '-40px' }}
+        viewport={{ once: true, margin: '-20px', amount: 0.1 }}
         transition={{
-          duration: 0.6,
-          delay: index * 0.07,
+          duration: 0.35,
+          delay: Math.min(index * 0.04, 0.25),
           type: 'spring',
-          stiffness: 80,
-          damping: 15,
+          stiffness: 180,
+          damping: 22,
         }}
         whileTap={{ scale: 0.96 }}
         onClick={handleOpenModal}
@@ -414,4 +414,6 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
       <ProductModal product={product} open={modalOpen} onClose={() => setModalOpen(false)} storeData={storeData} hidePacks={hidePacks} comboPrice={comboPrice} packPrice={packPrice} packData={packData} siblingProducts={siblingProducts} siblingIndex={siblingIndex} />
     </>
   );
-}
+});
+
+export default ProductCard;

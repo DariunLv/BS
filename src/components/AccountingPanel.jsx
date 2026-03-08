@@ -17,7 +17,7 @@ import {
   IconUserCircle, IconBriefcase, IconPercentage, IconArrowsSplit,
   IconMoneybag, IconInfoCircle, IconListDetails, IconChartDots,
   IconBuildingFactory, IconTool, IconAddressBook, IconPhone,
-  IconDownload, IconShare2,
+  IconDownload, IconShare2, IconArrowUpRight, IconShield,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -939,12 +939,38 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
   const ACCIONISTA = { nombre: 'Giovany', monto: 2400, porcentaje: 15 };
   const [newCapital, setNewCapital] = useState('');
   const [newCapitalVal, setNewCapitalVal] = useState('');
-  const [editingCapital, setEditingCapital] = useState(null); // {id, nombre, valor}
+  const [newCapitalFuente, setNewCapitalFuente] = useState('Yefer');
+  const [editingCapital, setEditingCapital] = useState(null); // {id, nombre, valor, fuenteDinero}
+  const [showMovimientos, setShowMovimientos] = useState(false);
 
-  // Fondo: total invertido - usado en gastos/costos del accionista
+  // Fondo: total invertido - usado en gastos/costos/capital del accionista
   const invUsado = investments.filter(i => i.fuenteDinero === 'Accionista').reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
   const costosUsado = sales.filter(s => s.fuenteCostos === 'Accionista').reduce((s, s2) => s + (parseFloat(s2.costosAgregados) || 0), 0);
-  const fondoDisponible = ACCIONISTA.monto - invUsado - costosUsado;
+  const capitalUsado = (capital || []).filter(c => c.fuenteDinero === 'Accionista').reduce((s, c) => s + (parseFloat(c.valor) || 0), 0);
+  const totalUsadoFondo = invUsado + costosUsado + capitalUsado;
+  const fondoDisponible = ACCIONISTA.monto - totalUsadoFondo;
+
+  // Todos los movimientos del fondo del accionista (para el historial)
+  const movimientosFondo = [
+    ...investments.filter(i => i.fuenteDinero === 'Accionista').map(i => ({
+      id: i.id, fecha: i.fecha, tipo: 'gasto',
+      descripcion: i.descripcion || 'Gasto',
+      monto: parseFloat(i.monto) || 0,
+      categoria: i.categoria || '',
+    })),
+    ...sales.filter(s => s.fuenteCostos === 'Accionista').map(s => ({
+      id: s.id + '_costo', fecha: s.fecha, tipo: 'costo_venta',
+      descripcion: `Costo de venta: ${s.producto || ''}`,
+      monto: parseFloat(s.costosAgregados) || 0,
+      categoria: 'Costo de venta',
+    })),
+    ...(capital || []).filter(c => c.fuenteDinero === 'Accionista').map(c => ({
+      id: c.id + '_cap', fecha: c.fecha, tipo: 'capital',
+      descripcion: c.nombre || 'Capital',
+      monto: parseFloat(c.valor) || 0,
+      categoria: 'Capital / Activo',
+    })),
+  ].sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
 
   // Ganancias mensuales
   const monthlyProfits = useMemo(() => {
@@ -1001,15 +1027,15 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
 
   const handleAddCapital = () => {
     if (!newCapital.trim()) return;
-    addCapital({ id: generateId(), nombre: newCapital.trim(), valor: newCapitalVal || '0', fecha: localToday() });
-    setNewCapital(''); setNewCapitalVal('');
+    addCapital({ id: generateId(), nombre: newCapital.trim(), valor: newCapitalVal || '0', fuenteDinero: newCapitalFuente, fecha: localToday() });
+    setNewCapital(''); setNewCapitalVal(''); setNewCapitalFuente('Yefer');
     onRefresh();
     notifications.show({ title: 'Agregado', message: 'Capital registrado', color: 'green' });
   };
 
   const handleSaveEditCapital = () => {
     if (!editingCapital || !editingCapital.nombre.trim()) return;
-    updateCapital(editingCapital.id, { nombre: editingCapital.nombre.trim(), valor: editingCapital.valor || '0' });
+    updateCapital(editingCapital.id, { nombre: editingCapital.nombre.trim(), valor: editingCapital.valor || '0', fuenteDinero: editingCapital.fuenteDinero || 'Yefer' });
     setEditingCapital(null);
     onRefresh();
     notifications.show({ title: 'Actualizado', message: 'Capital actualizado', color: 'green' });
@@ -1036,7 +1062,7 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
           </div>
           <div style={{ textAlign: 'center', padding: 8, background: 'white', borderRadius: 8 }}>
             <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem' }}>Fondo usado</Text>
-            <Text size="sm" fw={700} style={{ color: '#c92a2a' }}>S/.{(invUsado + costosUsado).toFixed(2)}</Text>
+            <Text size="sm" fw={700} style={{ color: '#c92a2a' }}>S/.{totalUsadoFondo.toFixed(2)}</Text>
           </div>
           <div style={{ textAlign: 'center', padding: 8, background: 'white', borderRadius: 8 }}>
             <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem' }}>Fondo disponible</Text>
@@ -1135,50 +1161,86 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
 
       {/* CAPITAL / ACTIVOS */}
       <Divider my={14} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <IconTool size={16} color={COLORS.navy} />
-        <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy, flex: 1 }}>Capital (Herramientas y Maquinas)</Text>
+        <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy, flex: 1 }}>Capital (Herramientas y Máquinas)</Text>
         {(capital || []).length > 0 && (
           <Badge size="sm" variant="filled" radius="xl" style={{ background: '#7c3aed', fontSize: '0.65rem' }}>
             S/.{(capital || []).reduce((s, c) => s + (parseFloat(c.valor) || 0), 0).toFixed(2)}
           </Badge>
         )}
       </div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        <TextInput size="xs" placeholder="Ej: Grabadora laser" value={newCapital}
-          onChange={(e) => setNewCapital(e.currentTarget.value)} radius="md" style={{ flex: 1 }}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAddCapital(); }} />
-        <TextInput size="xs" placeholder="Valor S/." value={newCapitalVal}
-          onChange={(e) => setNewCapitalVal(e.currentTarget.value)} radius="md" style={{ width: 90 }}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAddCapital(); }} />
-        <Button size="xs" radius="md" style={{ background: COLORS.navy }} onClick={handleAddCapital}>+</Button>
-      </div>
+
+      {/* Capital form */}
+      <Card padding="sm" radius="md" mb={10} style={{ background: '#faf8ff', border: '1px solid #e8d8f8' }}>
+        <Text size="xs" fw={600} mb={8} style={{ fontFamily: '"Outfit", sans-serif', color: '#7c3aed', fontSize: '0.68rem' }}>+ Agregar activo / herramienta</Text>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <TextInput size="xs" placeholder="Ej: Grabadora laser" value={newCapital}
+            onChange={(e) => setNewCapital(e.currentTarget.value)} radius="md" style={{ flex: 1 }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCapital(); }} />
+          <TextInput size="xs" placeholder="S/." value={newCapitalVal}
+            onChange={(e) => setNewCapitalVal(e.currentTarget.value)} radius="md" style={{ width: 80 }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAddCapital(); }} />
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <Select size="xs" placeholder="Quien pagó" value={newCapitalFuente}
+            onChange={(v) => setNewCapitalFuente(v || 'Yefer')}
+            data={FUENTE_DINERO_OPTIONS} radius="md" style={{ flex: 1 }}
+            leftSection={<IconMoneybag size={13} />} />
+          <Button size="xs" radius="md" style={{ background: '#7c3aed' }} onClick={handleAddCapital}>Agregar</Button>
+        </div>
+      </Card>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {(capital || []).map(c => (
           <Card key={c.id} padding="xs" radius="md" style={{ border: `1px solid ${editingCapital?.id === c.id ? '#c4b5fd' : COLORS.borderLight}`, background: editingCapital?.id === c.id ? '#faf8ff' : COLORS.white }}>
             {editingCapital?.id === c.id ? (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <TextInput size="xs" value={editingCapital.nombre}
-                  onChange={(e) => setEditingCapital(p => ({ ...p, nombre: e.currentTarget.value }))}
-                  radius="md" style={{ flex: 1 }} placeholder="Nombre" />
-                <TextInput size="xs" value={editingCapital.valor}
-                  onChange={(e) => setEditingCapital(p => ({ ...p, valor: e.currentTarget.value }))}
-                  radius="md" style={{ width: 80 }} placeholder="S/." />
-                <ActionIcon variant="filled" color="violet" radius="xl" size="sm" onClick={handleSaveEditCapital}><IconCheck size={12} /></ActionIcon>
-                <ActionIcon variant="light" color="gray" radius="xl" size="sm" onClick={() => setEditingCapital(null)}><IconX size={12} /></ActionIcon>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <TextInput size="xs" value={editingCapital.nombre}
+                    onChange={(e) => setEditingCapital(p => ({ ...p, nombre: e.currentTarget.value }))}
+                    radius="md" style={{ flex: 1 }} placeholder="Nombre" />
+                  <TextInput size="xs" value={editingCapital.valor}
+                    onChange={(e) => setEditingCapital(p => ({ ...p, valor: e.currentTarget.value }))}
+                    radius="md" style={{ width: 75 }} placeholder="S/." />
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <Select size="xs" value={editingCapital.fuenteDinero || 'Yefer'}
+                    onChange={(v) => setEditingCapital(p => ({ ...p, fuenteDinero: v || 'Yefer' }))}
+                    data={FUENTE_DINERO_OPTIONS} radius="md" style={{ flex: 1 }}
+                    leftSection={<IconMoneybag size={12} />} />
+                  <ActionIcon variant="filled" color="violet" radius="xl" size="sm" onClick={handleSaveEditCapital}><IconCheck size={12} /></ActionIcon>
+                  <ActionIcon variant="light" color="gray" radius="xl" size="sm" onClick={() => setEditingCapital(null)}><IconX size={12} /></ActionIcon>
+                </div>
               </div>
             ) : (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: '#f0eeff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <IconBuildingFactory size={14} color="#7c3aed" />
+                <div style={{ width: 32, height: 32, borderRadius: 8,
+                  background: c.fuenteDinero === 'Accionista' ? '#fff3cd' : '#f0eeff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  border: c.fuenteDinero === 'Accionista' ? '1px solid #ffc107' : '1px solid #e8d8f8',
+                }}>
+                  <IconBuildingFactory size={14} color={c.fuenteDinero === 'Accionista' ? '#856404' : '#7c3aed'} />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif' }}>{c.nombre}</Text>
-                  <Text size="xs" c="dimmed" style={{ fontSize: '0.58rem' }}>{c.fecha}</Text>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                    <Text size="xs" c="dimmed" style={{ fontSize: '0.56rem' }}>{c.fecha}</Text>
+                    {c.fuenteDinero && (
+                      <Badge size="xs" variant="light"
+                        color={c.fuenteDinero === 'Accionista' ? 'yellow' : c.fuenteDinero === 'Yefer' ? 'blue' : c.fuenteDinero === 'Frank' ? 'orange' : 'grape'}
+                        radius="xl" style={{ fontSize: '0.48rem', padding: '1px 5px', textTransform: 'none' }}>
+                        {c.fuenteDinero === 'Accionista' ? '💼 Accionista' : c.fuenteDinero}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-                {c.valor && c.valor !== '0' && <Text size="xs" fw={600} style={{ color: '#7c3aed' }}>S/.{c.valor}</Text>}
+                {c.valor && c.valor !== '0' && (
+                  <Text size="xs" fw={700} style={{ color: c.fuenteDinero === 'Accionista' ? '#856404' : '#7c3aed', whiteSpace: 'nowrap' }}>
+                    S/.{parseFloat(c.valor).toFixed(2)}
+                  </Text>
+                )}
                 <ActionIcon variant="light" color="blue" radius="xl" size="xs"
-                  onClick={() => setEditingCapital({ id: c.id, nombre: c.nombre, valor: c.valor || '' })}><IconEdit size={10} /></ActionIcon>
+                  onClick={() => setEditingCapital({ id: c.id, nombre: c.nombre, valor: c.valor || '', fuenteDinero: c.fuenteDinero || 'Yefer' })}><IconEdit size={10} /></ActionIcon>
                 <ActionIcon variant="light" color="red" radius="xl" size="xs"
                   onClick={() => { deleteCapital(c.id); onRefresh(); }}><IconTrash size={10} /></ActionIcon>
               </div>
@@ -1187,6 +1249,93 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
         ))}
         {(!capital || capital.length === 0) && <EmptyState icon={IconTool} text="No hay capital registrado" />}
       </div>
+
+      {/* HISTORIAL DE MOVIMIENTOS DEL FONDO DEL ACCIONISTA */}
+      <Divider my={14} />
+      <div
+        onClick={() => setShowMovimientos(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: showMovimientos ? 10 : 0, cursor: 'pointer' }}
+      >
+        <IconShield size={16} color="#856404" />
+        <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: '#856404', flex: 1 }}>
+          Movimientos del fondo accionista
+        </Text>
+        {movimientosFondo.length > 0 && (
+          <Badge size="sm" variant="light" color="yellow" radius="xl" style={{ fontSize: '0.62rem' }}>
+            {movimientosFondo.length} movs · S/.{movimientosFondo.reduce((s, m) => s + m.monto, 0).toFixed(2)}
+          </Badge>
+        )}
+        <IconArrowUpRight size={14} color="#856404"
+          style={{ transform: showMovimientos ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+      </div>
+
+      <AnimatePresence>
+        {showMovimientos && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+            {movimientosFondo.length === 0 ? (
+              <EmptyState icon={IconShield} text="No hay movimientos del fondo accionista" />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {movimientosFondo.map(mov => (
+                  <Card key={mov.id} padding="xs" radius="md" style={{
+                    border: '1px solid #fde68a',
+                    background: mov.tipo === 'capital' ? '#fffbeb' : mov.tipo === 'costo_venta' ? '#fff7ed' : '#fff9f0',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{
+                        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                        background: mov.tipo === 'capital' ? '#fef3c7' : mov.tipo === 'costo_venta' ? '#ffedd5' : '#fee2e2',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: '1px solid rgba(217,119,6,0.2)',
+                      }}>
+                        {mov.tipo === 'capital' ? <IconTool size={13} color="#d97706" />
+                          : mov.tipo === 'costo_venta' ? <IconReceipt size={13} color="#ea580c" />
+                          : <IconReportMoney size={13} color="#dc2626" />}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem', lineHeight: 1.3 }}>
+                          {mov.descripcion}
+                        </Text>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                          <Text size="xs" c="dimmed" style={{ fontSize: '0.56rem' }}>{mov.fecha}</Text>
+                          <Badge size="xs" variant="light" radius="xl" style={{ fontSize: '0.48rem', padding: '1px 5px',
+                            background: mov.tipo === 'capital' ? '#fef9c3' : mov.tipo === 'costo_venta' ? '#fff7ed' : '#fef2f2',
+                            color: mov.tipo === 'capital' ? '#854d0e' : mov.tipo === 'costo_venta' ? '#9a3412' : '#991b1b',
+                            border: 'none',
+                          }}>
+                            {mov.tipo === 'capital' ? 'Capital' : mov.tipo === 'costo_venta' ? 'Costo venta' : 'Gasto'}
+                            {mov.categoria ? ` · ${mov.categoria}` : ''}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Text size="xs" fw={700} style={{ color: '#c92a2a', whiteSpace: 'nowrap' }}>
+                        -S/.{mov.monto.toFixed(2)}
+                      </Text>
+                    </div>
+                  </Card>
+                ))}
+                {/* Total usados */}
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 12px', background: '#fef3c7', borderRadius: 10,
+                  border: '1px solid #fde68a', marginTop: 4,
+                }}>
+                  <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: '#92400e', fontSize: '0.7rem' }}>
+                    Total usado del fondo
+                  </Text>
+                  <Text size="sm" fw={700} style={{ color: '#92400e' }}>
+                    S/.{movimientosFondo.reduce((s, m) => s + m.monto, 0).toFixed(2)} / {ACCIONISTA.monto}
+                  </Text>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -45,6 +45,15 @@ export default function CategoryPage({ storeData, isLoading }) {
   const isPack = categoryId?.includes('pack');
   const isAnillos = categoryId?.includes('anillo');
   const [filterMaterial, setFilterMaterial] = useState('todos');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
+
+  // Cerrar dropdown al tocar fuera
+  useEffect(() => {
+    const handler = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
+    if (filterOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [filterOpen]);
 
   // Materiales únicos de los productos (solo para anillos)
   const materials = useMemo(() => {
@@ -162,55 +171,137 @@ export default function CategoryPage({ storeData, isLoading }) {
       {/* ── GRID: packs o productos normales ── */}
       <section style={{ padding: '20px 16px 32px', background: 'rgba(255,255,255,0.9)' }}>
 
-        {/* FILTRO DE MATERIALES (solo anillos) */}
+        {/* FILTRO DE MATERIALES — dropdown selector */}
         {isAnillos && materials.length > 1 && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-              <IconFilter size={13} color={COLORS.textMuted} />
-              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem', color: COLORS.textMuted, fontWeight: 500, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                Material
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {['todos', ...materials].map(mat => {
-                const active = filterMaterial === mat;
-                return (
-                  <motion.button
-                    key={mat}
-                    whileTap={{ scale: 0.93 }}
-                    onClick={() => setFilterMaterial(mat)}
+          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+
+            {/* Botón selector */}
+            <div ref={filterRef} style={{ position: 'relative' }}>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setFilterOpen(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem',
+                  fontWeight: filterMaterial !== 'todos' ? 600 : 500,
+                  padding: '7px 14px',
+                  borderRadius: 22,
+                  border: filterMaterial !== 'todos'
+                    ? `1.5px solid ${COLORS.orange}`
+                    : `1px solid ${COLORS.borderLight}`,
+                  background: filterMaterial !== 'todos'
+                    ? COLORS.orangePale
+                    : 'rgba(255,255,255,0.9)',
+                  color: filterMaterial !== 'todos' ? COLORS.orange : COLORS.textMuted,
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                  backdropFilter: 'blur(8px)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <IconFilter size={13} />
+                {filterMaterial === 'todos' ? 'Material' : filterMaterial}
+                <motion.span
+                  animate={{ rotate: filterOpen ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ display: 'flex', alignItems: 'center' }}
+                >
+                  <IconChevronRight size={13} style={{ transform: 'rotate(90deg)' }} />
+                </motion.span>
+              </motion.button>
+
+              {/* Dropdown */}
+              <AnimatePresence>
+                {filterOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                    transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                     style={{
-                      fontFamily: '"Outfit", sans-serif',
-                      fontSize: '0.72rem',
-                      fontWeight: active ? 600 : 400,
-                      padding: '5px 12px',
-                      borderRadius: 20,
-                      border: active ? `1.5px solid ${COLORS.orange}` : `1px solid ${COLORS.borderLight}`,
-                      background: active ? COLORS.orangePale : 'rgba(255,255,255,0.8)',
-                      color: active ? COLORS.orange : COLORS.textMuted,
-                      cursor: 'pointer',
-                      transition: 'all 0.18s',
-                      whiteSpace: 'nowrap',
+                      position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                      zIndex: 100, minWidth: 170,
+                      background: 'rgba(255,255,255,0.97)',
+                      border: `1px solid ${COLORS.borderLight}`,
+                      borderRadius: 14,
+                      boxShadow: '0 8px 32px rgba(26,39,68,0.12)',
+                      overflow: 'hidden',
+                      backdropFilter: 'blur(16px)',
                     }}
                   >
-                    {mat === 'todos' ? `Todos (${products.length})` : mat}
-                    {mat !== 'todos' && (
-                      <span style={{ marginLeft: 5, opacity: 0.6, fontSize: '0.62rem' }}>
-                        ({products.filter(p => p.material?.trim() === mat).length})
+                    {/* Opción Todos */}
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => { setFilterMaterial('todos'); setFilterOpen(false); }}
+                      style={{
+                        width: '100%', textAlign: 'left',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem',
+                        fontWeight: filterMaterial === 'todos' ? 600 : 400,
+                        color: filterMaterial === 'todos' ? COLORS.orange : COLORS.navy,
+                        background: filterMaterial === 'todos' ? COLORS.orangePale : 'transparent',
+                        border: 'none', cursor: 'pointer',
+                        borderBottom: `1px solid ${COLORS.borderLight}`,
+                      }}
+                    >
+                      <span>Todos los materiales</span>
+                      <span style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 400 }}>
+                        {products.length}
                       </span>
-                    )}
-                  </motion.button>
-                );
-              })}
+                    </motion.button>
+
+                    {/* Opciones de materiales */}
+                    {materials.map((mat, i) => {
+                      const count = products.filter(p => p.material?.trim() === mat).length;
+                      const active = filterMaterial === mat;
+                      return (
+                        <motion.button
+                          key={mat}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => { setFilterMaterial(mat); setFilterOpen(false); }}
+                          style={{
+                            width: '100%', textAlign: 'left',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem',
+                            fontWeight: active ? 600 : 400,
+                            color: active ? COLORS.orange : COLORS.navy,
+                            background: active ? COLORS.orangePale : 'transparent',
+                            border: 'none', cursor: 'pointer',
+                            borderBottom: i < materials.length - 1 ? `1px solid ${COLORS.borderLight}` : 'none',
+                          }}
+                        >
+                          <span>{mat}</span>
+                          <span style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 400 }}>
+                            {count}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            {filterMaterial !== 'todos' && (
-              <motion.p
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted, marginTop: 8 }}
-              >
-                Mostrando {filteredProducts.length} de {products.length} productos
-              </motion.p>
-            )}
+
+            {/* Contador de resultados o chip para limpiar filtro */}
+            <AnimatePresence>
+              {filterMaterial !== 'todos' && (
+                <motion.button
+                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
+                  whileTap={{ scale: 0.93 }}
+                  onClick={() => setFilterMaterial('todos')}
+                  style={{
+                    fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem',
+                    color: COLORS.textMuted, background: 'none', border: 'none',
+                    cursor: 'pointer', padding: '4px 2px', textDecoration: 'underline',
+                    textUnderlineOffset: 2,
+                  }}
+                >
+                  {filteredProducts.length} de {products.length} · quitar filtro
+                </motion.button>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
@@ -313,7 +404,7 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
               <motion.div key={currentImage}
                 initial={{ opacity: 0, scale: 1.02 }} animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.98 }} transition={{ duration: 0.3 }}>
-                <img src={images[currentImage]} alt={pack.title}
+                <img loading="lazy" src={images[currentImage]} alt={pack.title}
                   style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }} />
               </motion.div>
             </AnimatePresence>
@@ -370,7 +461,7 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
                 aspectRatio: '1/1',
                 border: i === currentImage ? `2.5px solid ${COLORS.orange}` : `1.5px solid ${COLORS.borderLight}`,
                 boxShadow: i === currentImage ? `0 4px 12px rgba(247,103,7,0.25)` : 'none', transition: 'all 0.25s' }}>
-              <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover',
+              <img loading="lazy" src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover',
                 opacity: i === currentImage ? 1 : 0.55, transition: 'opacity 0.25s' }} />
             </motion.div>
           ))}
@@ -447,7 +538,7 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10,
                   padding: '8px 12px', borderRadius: 10, background: '#fffaf5', border: '1px solid rgba(247,103,7,0.1)' }}>
                   {item.imagen ? (
-                    <img src={item.imagen} alt={item.nombre} style={{ width: 42, height: 42, borderRadius: 8,
+                    <img loading="lazy" src={item.imagen} alt={item.nombre} style={{ width: 42, height: 42, borderRadius: 8,
                       objectFit: 'cover', aspectRatio: '1/1', border: '1px solid rgba(247,103,7,0.15)', flexShrink: 0 }} />
                   ) : (
                     <div style={{ width: 42, height: 42, borderRadius: 8, flexShrink: 0,
@@ -525,7 +616,7 @@ function PackBannerSection({ navigate, storeData }) {
           <div style={{ position: 'absolute', bottom: 10, left: 16, width: 18, height: 18,
             borderBottom: '1.5px solid rgba(247,103,7,0.4)', borderLeft: '1.5px solid rgba(247,103,7,0.4)', borderRadius: '0 0 0 5px' }} />
           {packCat.image
-            ? <img src={packCat.image} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: 'cover', aspectRatio: '1/1', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.15)' }} />
+            ? <img loading="lazy" src={packCat.image} alt="" style={{ width: 64, height: 64, borderRadius: 10, objectFit: 'cover', aspectRatio: '1/1', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.15)' }} />
             : <div style={{ width: 64, height: 64, borderRadius: 10, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
           }
           <div style={{ flex: 1, textAlign: 'left' }}>

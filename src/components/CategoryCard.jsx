@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { IconChevronRight } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 
-export default function CategoryCard({ category, onClick, index = 0, productCount = 0 }) {
+const CategoryCard = React.memo(function CategoryCard({ category, onClick, index = 0, productCount = 0 }) {
   const hasImage = !!category.image;
   const hasLottie = !!category.lottieUrl;
 
@@ -165,4 +165,6 @@ export default function CategoryCard({ category, onClick, index = 0, productCoun
       </div>
     </motion.div>
   );
-}
+});
+
+export default CategoryCard;

@@ -29,7 +29,14 @@ export default function AnimatedBackground() {
     resize();
     window.addEventListener('resize', resize);
 
+    let frameCount = 0;
     const draw = () => {
+      frameCount++;
+      // Solo redibujar cada 2 frames → 30fps en vez de 60fps (ahorra batería y CPU)
+      if (frameCount % 2 !== 0) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
       t++;
       ctx.clearRect(0, 0, width, height);
 

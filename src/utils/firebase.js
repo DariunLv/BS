@@ -18,10 +18,14 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Colecciones separadas para no superar el limite de 1MB por documento
-const META_REF     = doc(db, 'store', 'meta');
-const OLD_DATA_REF = doc(db, 'store', 'data'); // documento viejo (compatibilidad)
-const PROD_COL     = collection(db, 'products');
-const IMG_COL      = collection(db, 'productImages');
+const META_REF       = doc(db, 'store', 'meta');
+const OLD_DATA_REF   = doc(db, 'store', 'data'); // documento viejo (compatibilidad)
+const PROD_COL       = collection(db, 'products');
+const IMG_COL        = collection(db, 'productImages');
+const CLI_PHOTOS_COL = collection(db, 'clientPhotos');   // fotos de clientes frecuentes
+const SALES_COL      = collection(db, 'sales');           // ventas
+const INVEST_COL     = collection(db, 'investments');     // gastos/inversiones
+const PENDING_COL    = collection(db, 'pendingSales');    // ventas pendientes
 
 /* ============================================================
    CARGA COMPLETA - Leer todo al iniciar la app
@@ -78,7 +82,42 @@ export async function loadFromFirebase() {
       images: imagesMap[p.id] || [],
     }));
 
-    return { ...meta, products: productsWithImages };
+    // Leer colecciones separadas en paralelo
+    const [cliPhotoSnap, salesSnap, investSnap, pendingSnap] = await Promise.all([
+      getDocs(CLI_PHOTOS_COL),
+      getDocs(SALES_COL),
+      getDocs(INVEST_COL),
+      getDocs(PENDING_COL),
+    ]);
+
+    // Fotos de clientes
+    const clientPhotosMap = {};
+    cliPhotoSnap.forEach(d => { clientPhotosMap[d.id] = d.data().foto || ''; });
+    const frecuentClientsWithPhotos = (meta.frecuentClients || []).map(c => ({
+      ...c,
+      foto: clientPhotosMap[c.id] || c.foto || '',
+    }));
+
+    // Ventas
+    const sales = [];
+    salesSnap.forEach(d => sales.push(d.data()));
+
+    // Inversiones
+    const investments = [];
+    investSnap.forEach(d => investments.push(d.data()));
+
+    // Pendientes
+    const pendingSales = [];
+    pendingSnap.forEach(d => pendingSales.push(d.data()));
+
+    return {
+      ...meta,
+      frecuentClients: frecuentClientsWithPhotos,
+      sales: sales.length > 0 ? sales : (meta.sales || []),
+      investments: investments.length > 0 ? investments : (meta.investments || []),
+      pendingSales: pendingSales.length > 0 ? pendingSales : (meta.pendingSales || []),
+      products: productsWithImages,
+    };
   } catch (e) {
     console.error('Error leyendo Firebase:', e);
     return null;
@@ -92,8 +131,44 @@ export async function saveToFirebase(data) {
   try {
     const { products = [], ...meta } = data;
 
-    // 1. Guardar metadatos SIN productos (categorias, config, etc.)
-    await setDoc(META_REF, meta);
+    // Extraer colecciones grandes del meta para guardarlas separado
+    const frecuentClientsRaw = (meta.frecuentClients || []).map(c => ({ ...c }));
+    const salesRaw           = meta.sales || [];
+    const investmentsRaw     = meta.investments || [];
+    const pendingSalesRaw    = meta.pendingSales || [];
+
+    const metaToSave = {
+      ...meta,
+      frecuentClients: frecuentClientsRaw.map(({ foto, ...rest }) => rest),
+      sales: [],
+      investments: [],
+      pendingSales: [],
+    };
+
+    // 1. Guardar metadatos limpios (sin datos que crecen)
+    await setDoc(META_REF, metaToSave);
+
+    // Helper para guardar array en coleccion (borra los que ya no existen)
+    async function syncCollection(col, items, buildDoc) {
+      const b = writeBatch(db);
+      let ops = 0;
+      for (const item of items) {
+        if (item.id) { b.set(doc(db, col.id, item.id), buildDoc(item)); ops++; }
+        if (ops >= 490) { await b.commit(); }
+      }
+      if (ops > 0) await b.commit();
+    }
+
+    await Promise.all([
+      // Fotos de clientes
+      syncCollection(CLI_PHOTOS_COL, frecuentClientsRaw, c => ({ foto: c.foto || '' })),
+      // Ventas — guardar cada una en su propio doc
+      syncCollection(SALES_COL, salesRaw, s => s),
+      // Inversiones/gastos
+      syncCollection(INVEST_COL, investmentsRaw, i => i),
+      // Ventas pendientes
+      syncCollection(PENDING_COL, pendingSalesRaw, p => p),
+    ]);
 
     // 2. Guardar cada producto en su propio documento (sin imagenes)
     // Usar batch para eficiencia (max 500 ops por batch)
