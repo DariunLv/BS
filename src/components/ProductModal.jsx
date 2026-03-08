@@ -157,12 +157,35 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
         content: { background: COLORS.white },
       }}
     >
+      {/* Wrapper: overflow hidden para que los slides no se vean fuera */}
       <div
-        style={{ maxWidth: 600, margin: '0 auto', position: 'relative' }}
+        style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}
         onTouchStart={handleSwipeTouchStart}
         onTouchMove={handleSwipeTouchMove}
         onTouchEnd={handleSwipeTouchEnd}
       >
+        <div style={{ overflow: 'hidden', position: 'relative' }}>
+        <AnimatePresence mode="sync" custom={swipeDir} initial={false}>
+        <motion.div
+          key={`product-${activeIndex}`}
+          custom={swipeDir}
+          variants={{
+            enter: (dir) => ({ x: dir < 0 ? '100%' : '-100%' }),
+            center: { x: 0 },
+            exit:  (dir) => ({ x: dir < 0 ? '-100%' : '100%' }),
+          }}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0,
+            width: '100%', height: '100vh',
+            overflowY: 'auto', background: COLORS.white,
+            maxWidth: 600, margin: '0 auto',
+            willChange: 'transform',
+          }}
+        >
 
         {/* ====== HEADER FLOTANTE ====== */}
         <div style={{
@@ -226,22 +249,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
         </div>
 
         {/* ====== GALERIA DE IMAGENES ====== */}
-        <div style={{ overflow: 'hidden', position: 'relative' }}>
-        <AnimatePresence mode="popLayout" custom={swipeDir} initial={false}>
-        <motion.div
-          key={`product-${activeIndex}`}
-          custom={swipeDir}
-          variants={{
-            enter: (dir) => ({ x: dir < 0 ? '100%' : '-100%', opacity: 1 }),
-            center: { x: 0, opacity: 1 },
-            exit:  (dir) => ({ x: dir < 0 ? '-100%' : '100%', opacity: 1 }),
-          }}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: 0.26, ease: [0.25, 0.46, 0.45, 0.94] }}
-          style={{ willChange: 'transform', width: '100%' }}
-        >
+        <div>
         <div style={{ position: 'relative', background: COLORS.offWhite }}>
           {images.length > 0 ? (
             <>
@@ -1007,6 +1015,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
               </motion.div>
             );
           })()}
+        </div>
         </div>
         </motion.div>
         </AnimatePresence>
