@@ -290,6 +290,18 @@ export function toggleSoldOut(id) {
   return data;
 }
 
+export function toggleHidden(id) {
+  const data = loadStore();
+  const idx = data.products.findIndex(p => p.id === id);
+  if (idx !== -1) {
+    data.products[idx].hidden = !data.products[idx].hidden;
+    cacheData = data;
+    const { images, ...productMeta } = data.products[idx];
+    saveProductToFirebase(productMeta);
+  }
+  return data;
+}
+
 /* ====== DELIVERY LOCATIONS ====== */
 export function addDeliveryLocation(location) {
   const data = loadStore();

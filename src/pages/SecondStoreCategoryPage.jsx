@@ -15,7 +15,7 @@ export default function SecondStoreCategoryPage({ storeData, onBack }) {
   );
 
   const products = useMemo(() =>
-    (storeData?.products || []).filter(p => p.categoryId === categoryId),
+    (storeData?.products || []).filter(p => p.categoryId === categoryId && !p.hidden),
     [storeData, categoryId]
   );
 

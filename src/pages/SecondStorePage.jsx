@@ -15,11 +15,11 @@ export default function SecondStorePage({ storeData, onNavigateCategory, onBack 
   );
 
   const getProductCount = (catId) =>
-    (storeData?.products || []).filter(p => p.categoryId === catId).length;
+    (storeData?.products || []).filter(p => p.categoryId === catId && !p.hidden).length;
 
   const allGeneralProducts = useMemo(() => {
     const catIds = generalCategories.map(c => c.id);
-    return (storeData?.products || []).filter(p => catIds.includes(p.categoryId));
+    return (storeData?.products || []).filter(p => catIds.includes(p.categoryId) && !p.hidden);
   }, [storeData, generalCategories]);
 
   const galleryImages = useMemo(() =>
@@ -118,7 +118,7 @@ export default function SecondStorePage({ storeData, onNavigateCategory, onBack 
                   borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)',
                   boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                 }}>
-                  <img src={item.image} alt={item.text} style={{ width: 170, height: 170, objectFit: 'cover', display: 'block' }} />
+                  <img loading="lazy" src={item.image} alt={item.text} style={{ width: 170, height: 170, objectFit: 'cover', display: 'block' }} />
                 </div>
                 <p style={{
                   fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)',

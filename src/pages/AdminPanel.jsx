@@ -6,14 +6,14 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  IconPlus, IconTrash, IconEdit, IconEye, IconHistory, IconPhoto, IconLogout, IconCategory,
+  IconPlus, IconTrash, IconEdit, IconEye, IconEyeOff, IconHistory, IconPhoto, IconLogout, IconCategory,
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
   IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  addProduct, updateProduct, deleteProduct, toggleSoldOut,
+  addProduct, updateProduct, deleteProduct, toggleSoldOut, toggleHidden,
   addCategory, updateCategory, deleteCategory,
   addDeliveryLocation, updateDeliveryLocation, deleteDeliveryLocation,
   updateShalomImage, updateWhatsappNumber, getWhatsappNumber,
@@ -210,6 +210,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
                           onEdit={() => setProductModal({ open: true, product })}
                           onDelete={() => { deleteProduct(product.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Producto eliminado', color: 'red' }); }}
                           onToggleSoldOut={() => { toggleSoldOut(product.id); onRefresh(); }}
+                          onToggleHidden={() => { toggleHidden(product.id); onRefresh(); }}
                         />
                       </div>
                     </motion.div>
@@ -442,7 +443,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
 /* ========= SUB-COMPONENTS ========= */
 
-function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOut }) {
+function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOut, onToggleHidden }) {
   const cat = categories.find(c => c.id === product.categoryId);
   const [showHistory, setShowHistory] = useState(false);
   const views = getProductViews()[product.id] || 0;
@@ -450,7 +451,7 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }}>
-      <Card padding="sm" radius="md" style={{ border: `1px solid ${COLORS.borderLight}`, background: COLORS.white }}>
+      <Card padding="sm" radius="md" style={{ border: `1px solid ${product.hidden ? '#d0d4da' : COLORS.borderLight}`, background: product.hidden ? '#f8f9fa' : COLORS.white, opacity: product.hidden ? 0.72 : 1 }}>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', background: COLORS.offWhite, flexShrink: 0, aspectRatio: '1/1' }}>
             {product.images?.[0] ? (
@@ -465,6 +466,7 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
               <Text size="sm" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{product.title || 'Sin título'}</Text>
               {product.soldOut && <Badge size="xs" color="red" variant="filled">Agotado</Badge>}
+              {product.hidden && <Badge size="xs" color="gray" variant="filled">Oculto</Badge>}
             </div>
             <Text size="xs" c="dimmed" lineClamp={1}>{cat?.name || 'Sin categoría'}</Text>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -506,6 +508,14 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
             <ActionIcon variant="light" color="blue" radius="xl" size="sm" onClick={onEdit}><IconEdit size={14} /></ActionIcon>
             <ActionIcon variant="light" color="red" radius="xl" size="sm" onClick={onDelete}><IconTrash size={14} /></ActionIcon>
             <ActionIcon variant={product.soldOut ? 'filled' : 'light'} color="orange" radius="xl" size="sm" onClick={onToggleSoldOut}><IconCheck size={14} /></ActionIcon>
+            <ActionIcon
+              variant={product.hidden ? 'filled' : 'light'}
+              color="gray" radius="xl" size="sm"
+              onClick={onToggleHidden}
+              title={product.hidden ? 'Mostrar producto' : 'Ocultar producto'}
+            >
+              {product.hidden ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+            </ActionIcon>
           </div>
         </div>
         {/* Historial de precios expandible */}
@@ -571,7 +581,7 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
 
 function ProductFormModal({ open, product, categories, storeType, allProducts, onClose, onSave }) {
   const EMPTY_FORM = {
-    title: '', description: '', material: '', plating: '', platingType: '',
+    title: '', description: '', material: '', plating: '', platingType: '', tipoPiedra: '', colorPiedra: '',
     price: '', categoryId: '', images: [], soldOut: false,
     tallasVaron: [], tallasDama: [],
     contenidos: [], modelosPrecio: [],
@@ -594,6 +604,8 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
         title: product.title || '', description: product.description || '',
         material: product.material || '', plating: product.plating || '',
         platingType: product.platingType || '',
+        tipoPiedra: product.tipoPiedra || '',
+        colorPiedra: product.colorPiedra || '',
         price: product.price || '', categoryId: product.categoryId || '',
         images: product.images || [], soldOut: product.soldOut || false,
         tallasVaron: hasSplit ? (product.tallasVaron || []) : legacyTallas,
@@ -758,6 +770,28 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                   )}
                 </div>
               )}
+              {/* Tipo de piedra — solo para anillos */}
+              {isAnillos && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <TextInput
+                    label="Tipo de piedra"
+                    placeholder="Ej: Zirconia, Cristal, Rubí..."
+                    value={form.tipoPiedra || ''}
+                    onChange={(e) => setForm(p => ({ ...p, tipoPiedra: e.currentTarget.value }))}
+                    radius="md"
+                    leftSection={<IconDiamond size={15} color="#7c3aed" />}
+                  />
+                  <TextInput
+                    label="Color de la piedra"
+                    placeholder="Ej: Azul, Rosa, Transparente..."
+                    value={form.colorPiedra || ''}
+                    onChange={(e) => setForm(p => ({ ...p, colorPiedra: e.currentTarget.value }))}
+                    radius="md"
+                    leftSection={<IconDiamond size={15} color="#7c3aed" />}
+                  />
+                </div>
+              )}
+
               {/* Tallas solo para anillos */}
               {isAnillos && (
                 <div style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: 'hidden' }}>

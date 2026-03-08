@@ -215,8 +215,8 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
             {product.title || 'Sin titulo'}
           </h3>
 
-          {/* Specs card con iconos - Material y Acabado */}
-          {(product.material || (product.platingType && product.plating)) && (
+          {/* Specs card con iconos - Material, Acabado y Piedra */}
+          {(product.material || (product.platingType && product.plating) || product.tipoPiedra) && (
             <div style={{
               display: 'flex', flexDirection: 'column', gap: 5,
               padding: '8px 10px', borderRadius: 12,
@@ -256,6 +256,26 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                   <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem', lineHeight: 1.3 }}>
                     <span style={{ color: COLORS.textMuted, fontWeight: 500 }}>{product.platingType}: </span>
                     <span style={{ color: COLORS.navy, fontWeight: 700 }}>{product.plating}</span>
+                  </span>
+                </div>
+              )}
+
+              {/* Tipo de piedra */}
+              {product.tipoPiedra && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 6,
+                    background: '#f3f0ff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, border: '1px solid rgba(124,58,237,0.12)',
+                  }}>
+                    <IconDiamond size={11} color="#7c3aed" />
+                  </div>
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem', lineHeight: 1.3 }}>
+                    <span style={{ color: COLORS.textMuted, fontWeight: 500 }}>Piedra: </span>
+                    <span style={{ color: '#6d28d9', fontWeight: 700 }}>
+                      {product.tipoPiedra}{product.colorPiedra ? ` · ${product.colorPiedra}` : ''}
+                    </span>
                   </span>
                 </div>
               )}

@@ -25,7 +25,7 @@ export default function CategoryPage({ storeData, isLoading }) {
 
   const products = useMemo(() =>
     (storeData?.products || [])
-      .filter(p => p.categoryId === categoryId)
+      .filter(p => p.categoryId === categoryId && !p.hidden)
       .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)),
     [storeData, categoryId]
   );
@@ -352,7 +352,7 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
 
   const ringProducts = useMemo(() =>
     (storeData?.products || [])
-      .filter(p => p.categoryId?.includes('anillo'))
+      .filter(p => p.categoryId?.includes('anillo') && !p.hidden)
       .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)),
     [storeData]
   );

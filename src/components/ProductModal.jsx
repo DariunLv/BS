@@ -86,7 +86,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
   const isAnillos = product.categoryId?.includes('anillo');
   const isPack = product.categoryId?.includes('pack');
   const hasTallas = isAnillos && (tallas.length > 0 || tallasVaron.length > 0 || tallasDama.length > 0);
-  const hasSpecs = product.material || (product.platingType && product.plating);
+  const hasSpecs = product.material || (product.platingType && product.plating) || product.tipoPiedra;
 
   const allRings = storeData
     ? (storeData.products || []).filter(p => p.categoryId?.includes('anillo')).sort((a,b) => (a.sortOrder??9999)-(b.sortOrder??9999))
@@ -101,6 +101,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
     if (product.price) msg += `\nPrecio: S/.${product.price}`;
     if (product.material) msg += `\nMaterial: ${product.material}`;
     if (product.platingType && product.plating) msg += `\n${product.platingType}: ${product.plating}`;
+    if (product.tipoPiedra) msg += `\nPiedra: ${product.tipoPiedra}${product.colorPiedra ? ' ' + product.colorPiedra : ''}`;
     if (selectedTalla) {
       const label = selectedTalla.startsWith('V-') ? `Talla Varón: ${selectedTalla.slice(2)}` :
                     selectedTalla.startsWith('D-') ? `Talla Dama: ${selectedTalla.slice(2)}` :
@@ -158,71 +159,65 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
       }}
     >
       <div
-        style={{ maxWidth: 600, margin: '0 auto', position: 'relative' }}
+        style={{ width: '100%', position: 'relative' }}
         onTouchStart={handleSwipeTouchStart}
         onTouchMove={handleSwipeTouchMove}
         onTouchEnd={handleSwipeTouchEnd}
       >
 
-        {/* ====== HEADER FLOTANTE ====== */}
+        {/* ====== HEADER ====== */}
         <div style={{
           position: 'sticky', top: 0, zIndex: 50,
-          background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)',
+          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
           borderBottom: `1px solid ${COLORS.borderLight}`,
-          padding: '10px 16px',
+          padding: '0 16px',
+          height: 52,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 10px', borderRadius: 10,
-          }}>
-            <IconChevronLeft size={18} color={COLORS.navy} />
-            <span style={{
-              fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem',
-              color: COLORS.navy, fontWeight: 500,
-            }}>Volver</span>
-          </button>
+          {/* Volver */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '6px 10px 6px 4px', borderRadius: 10,
+            }}
+          >
+            <IconChevronLeft size={20} color={COLORS.navy} strokeWidth={2.5} />
+            <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem', color: COLORS.navy, fontWeight: 600 }}>Volver</span>
+          </motion.button>
 
-          {/* Dots de navegación entre productos */}
+          {/* Dots centrados */}
           {hasSiblings && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <motion.button whileTap={{ scale: 0.85 }} onClick={prevProduct}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
-                <IconChevronLeft size={16} color={COLORS.textMuted} />
-              </motion.button>
-              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                {siblingProducts.map((_, i) => (
-                  <motion.div key={i}
-                    animate={{ width: i === activeIndex ? 18 : 6, background: i === activeIndex ? COLORS.orange : COLORS.borderLight }}
-                    transition={{ duration: 0.25 }}
-                    onClick={() => setActiveIndex(i)}
-                    style={{ height: 6, borderRadius: 3, cursor: 'pointer' }}
-                  />
-                ))}
-              </div>
-              <motion.button whileTap={{ scale: 0.85 }} onClick={nextProduct}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
-                <IconChevronRight size={16} color={COLORS.textMuted} />
-              </motion.button>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {siblingProducts.slice(0, 14).map((_, i) => (
+                <motion.div key={i}
+                  animate={{ width: i === activeIndex ? 18 : 6, background: i === activeIndex ? COLORS.orange : COLORS.borderLight }}
+                  transition={{ duration: 0.22 }}
+                  onClick={() => setActiveIndex(i)}
+                  style={{ height: 6, borderRadius: 3, cursor: 'pointer' }}
+                />
+              ))}
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={(e) => { e.stopPropagation(); setLiked(!liked); }}
-              style={{
-                background: liked ? '#fee6e6' : COLORS.offWhite,
-                border: `1px solid ${liked ? '#ffb3b3' : COLORS.borderLight}`,
-                borderRadius: 10, width: 36, height: 36, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'all 0.2s',
-              }}
-            >
-              <IconHeart size={16} color={liked ? '#e11d48' : COLORS.textMuted} fill={liked ? '#e11d48' : 'none'} />
-            </motion.button>
-          </div>
+          {/* Corazón */}
+          <motion.button
+            whileTap={{ scale: 0.82 }}
+            onClick={(e) => { e.stopPropagation(); setLiked(!liked); }}
+            style={{
+              background: liked ? '#fee6e6' : COLORS.offWhite,
+              border: `1px solid ${liked ? '#ffb3b3' : COLORS.borderLight}`,
+              borderRadius: '50%', width: 38, height: 38, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background 0.2s, border 0.2s',
+            }}
+          >
+            <motion.div animate={liked ? { scale: [1, 1.4, 1] } : { scale: 1 }} transition={{ duration: 0.28 }}>
+              <IconHeart size={18} color={liked ? '#e11d48' : COLORS.textMuted} fill={liked ? '#e11d48' : 'none'} />
+            </motion.div>
+          </motion.button>
         </div>
 
         {/* ====== GALERIA DE IMAGENES ====== */}
@@ -233,15 +228,15 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
           key={`product-${activeIndex}`}
           custom={swipeDir}
           variants={{
-            enter: (dir) => ({ x: dir < 0 ? '100%' : '-100%' }),
-            center: { x: 0 },
-            exit:  (dir) => ({ x: dir < 0 ? '-100%' : '100%' }),
+            enter: (dir) => ({ x: dir < 0 ? '60%' : '-60%', opacity: 0, scale: 0.96 }),
+            center: { x: 0, opacity: 1, scale: 1 },
+            exit:  (dir) => ({ x: dir < 0 ? '-60%' : '60%', opacity: 0, scale: 0.96 }),
           }}
           initial="enter"
           animate="center"
           exit="exit"
-          transition={{ duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-          style={{ width: '100%', background: COLORS.white, willChange: 'transform' }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          style={{ width: '100%', background: COLORS.white, willChange: 'transform, opacity' }}
         >
         <div style={{ position: 'relative', background: COLORS.offWhite }}>
           {images.length > 0 ? (
@@ -392,7 +387,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
         )}
 
         {/* ====== CONTENIDO DEL PRODUCTO ====== */}
-        <div style={{ padding: '20px 20px 32px' }}>
+        <div style={{ padding: '20px 20px 40px' }}>
 
           {/* Titulo y precio */}
           <motion.div
@@ -408,35 +403,87 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
               {product.title}
             </h1>
 
-            {/* Precio */}
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              background: `linear-gradient(135deg, ${COLORS.orangePale}, #fff4e6)`,
-              padding: '10px 20px', borderRadius: 16,
-              border: '1px solid rgba(247,103,7,0.12)',
-            }}>
-              <div>
-                <span style={{
-                  fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
-                  color: COLORS.textMuted, fontWeight: 500, textTransform: 'uppercase',
-                  letterSpacing: '1px', display: 'block', marginBottom: 1,
-                }}>Precio</span>
-                <span className="price-tag" style={{ fontSize: '1.5rem' }}>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 400, marginRight: 2 }}>S/.</span>
-                  {fmt(product.price)}
-                </span>
-              </div>
-              {!product.soldOut && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  background: '#e6f9e6', padding: '3px 10px', borderRadius: 20,
-                  border: '1px solid rgba(45,138,45,0.15)',
-                }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#2d8a2d' }} />
+            {/* Precio + navegación lateral */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+
+              {/* Precio */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 10,
+                background: `linear-gradient(135deg, ${COLORS.orangePale}, #fff4e6)`,
+                padding: '10px 20px', borderRadius: 16,
+                border: '1px solid rgba(247,103,7,0.12)',
+                flex: 1,
+              }}>
+                <div>
                   <span style={{
                     fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
-                    color: '#2d8a2d', fontWeight: 600, letterSpacing: '0.3px',
-                  }}>Disponible</span>
+                    color: COLORS.textMuted, fontWeight: 500, textTransform: 'uppercase',
+                    letterSpacing: '1px', display: 'block', marginBottom: 1,
+                  }}>Precio</span>
+                  <span className="price-tag" style={{ fontSize: '1.5rem' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 400, marginRight: 2 }}>S/.</span>
+                    {fmt(product.price)}
+                  </span>
+                </div>
+                {!product.soldOut && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: '#e6f9e6', padding: '3px 10px', borderRadius: 20,
+                    border: '1px solid rgba(45,138,45,0.15)',
+                  }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#2d8a2d' }} />
+                    <span style={{
+                      fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
+                      color: '#2d8a2d', fontWeight: 600, letterSpacing: '0.3px',
+                    }}>Disponible</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Botones de navegación entre productos */}
+              {hasSiblings && (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  background: '#f5f6f8',
+                  border: '1px solid #e8eaed',
+                  borderRadius: 14, padding: '8px 8px',
+                  flexShrink: 0,
+                }}>
+                  <motion.button
+                    whileTap={{ scale: 0.84 }}
+                    onClick={prevProduct}
+                    style={{
+                      background: 'white', border: '1px solid #e2e5ea',
+                      borderRadius: 9, width: 34, height: 34, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+                    }}
+                  >
+                    <IconChevronLeft size={16} color={COLORS.textMuted} strokeWidth={2} />
+                  </motion.button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <span style={{
+                      fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', fontWeight: 700,
+                      color: COLORS.navy, lineHeight: 1,
+                    }}>{activeIndex + 1}</span>
+                    <div style={{ width: 14, height: 1, background: '#d0d4da', borderRadius: 1 }} />
+                    <span style={{
+                      fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem',
+                      color: COLORS.textMuted, lineHeight: 1,
+                    }}>{siblingProducts.length}</span>
+                  </div>
+                  <motion.button
+                    whileTap={{ scale: 0.84 }}
+                    onClick={nextProduct}
+                    style={{
+                      background: 'white', border: '1px solid #e2e5ea',
+                      borderRadius: 9, width: 34, height: 34, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+                    }}
+                  >
+                    <IconChevronRight size={16} color={COLORS.textMuted} strokeWidth={2} />
+                  </motion.button>
                 </div>
               )}
             </div>
@@ -582,6 +629,11 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                 )}
                 {product.platingType && product.plating && (
                   <SpecItem icon={IconDroplet} label={product.platingType} value={product.plating} color="#2c4a80" bg="#e6f0ff" />
+                )}
+                {product.tipoPiedra && (
+                  <SpecItem icon={IconDiamond} label="Piedra"
+                    value={product.colorPiedra ? `${product.tipoPiedra} · ${product.colorPiedra}` : product.tipoPiedra}
+                    color="#7c3aed" bg="#f3f0ff" />
                 )}
               </div>
             </motion.div>
