@@ -42,6 +42,12 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
     return diff <= 7;
   })();
 
+  const handlePreloadImages = () => {
+    // Precarga imágenes al tocar/hover — antes de que abra el modal
+    const imgs = product.images || (product.image ? [product.image] : []);
+    imgs.forEach(src => { if (src) { const i = new Image(); i.src = src; } });
+  };
+
   const handleOpenModal = () => {
     trackProductView(product.id);
     setModalOpen(true);
@@ -64,7 +70,8 @@ export default function ProductCard({ product, index = 0, showOfferTag = false, 
         }}
         whileTap={{ scale: 0.96 }}
         onClick={handleOpenModal}
-        onMouseEnter={() => setHovered(true)}
+        onTouchStart={handlePreloadImages}
+        onMouseEnter={() => { setHovered(true); handlePreloadImages(); }}
         onMouseLeave={() => setHovered(false)}
         style={{
           background: COLORS.white,

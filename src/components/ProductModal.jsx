@@ -36,6 +36,23 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
   const galleryRef = useRef(null);
   const images = product?.images || [];
 
+  // Precargar imágenes del producto actual y hermanos cercanos
+  useEffect(() => {
+    if (!open) return;
+    const preload = (srcs) => srcs.forEach(src => { if (src) { const i = new Image(); i.src = src; } });
+    // Imágenes del producto actual
+    const imgs = product?.images || (product?.image ? [product.image] : []);
+    preload(imgs);
+    // Precarga hermano siguiente y anterior
+    if (hasSiblings) {
+      const next = siblingProducts[(activeIndex + 1) % siblingProducts.length];
+      const prev = siblingProducts[(activeIndex - 1 + siblingProducts.length) % siblingProducts.length];
+      [next, prev].forEach(p => {
+        if (p) preload(p.images || (p.image ? [p.image] : []));
+      });
+    }
+  }, [open, activeIndex]);
+
   useEffect(() => {
     if (open) {
       setCurrentImage(0);
@@ -133,7 +150,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
       fullScreen
       radius={0}
       padding={0}
-      transitionProps={{ transition: 'slide-up', duration: 350 }}
+      transitionProps={{ transition: 'fade', duration: 180 }}
       withCloseButton={false}
       styles={{
         body: { padding: 0, background: COLORS.white },
@@ -247,6 +264,8 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                   <img
                     src={images[currentImage]}
                     alt={product.title}
+                    loading="eager"
+                    fetchPriority="high"
                     onLoad={() => setModalImgLoaded(true)}
                     style={{
                       width: '100%',
@@ -378,7 +397,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.08, ease: [0.22,1,0.36,1] }}
+            transition={{ duration: 0.2, delay: 0.036, ease: [0.22,1,0.36,1] }}
             style={{ marginBottom: 16 }}>
             <h1 style={{
               fontFamily: '"Playfair Display", serif',
@@ -525,7 +544,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
           <motion.div
             initial={{ scaleX: 0, opacity: 0 }}
             animate={{ scaleX: 1, opacity: 1 }}
-            transition={{ duration: 0.4, delay: 0.15, ease: [0.22,1,0.36,1] }}
+            transition={{ duration: 0.22, delay: 0.068, ease: [0.22,1,0.36,1] }}
             style={{
               height: 2, borderRadius: 1, marginBottom: 20,
               background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.gold}, transparent)`,
@@ -537,7 +556,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.18, ease: [0.22,1,0.36,1] }}
+              transition={{ duration: 0.2, delay: 0.081, ease: [0.22,1,0.36,1] }}
               style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <div style={{
@@ -572,7 +591,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.24, ease: [0.22,1,0.36,1] }}
+              transition={{ duration: 0.2, delay: 0.108, ease: [0.22,1,0.36,1] }}
               style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <IconRuler2 size={14} color={COLORS.navy} />
@@ -681,7 +700,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.30, ease: [0.22,1,0.36,1] }}
+              transition={{ duration: 0.2, delay: 0.135, ease: [0.22,1,0.36,1] }}
               style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <div style={{
@@ -963,7 +982,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
               <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.32, delay: 0.35, ease: [0.22,1,0.36,1] }}
+                transition={{ duration: 0.2, delay: 0.158, ease: [0.22,1,0.36,1] }}
               >
               <motion.a
                 href={`https://wa.me/${number}?text=${encoded}`}
