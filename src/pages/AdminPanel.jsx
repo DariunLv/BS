@@ -467,6 +467,7 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
               <Text size="sm" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{product.title || 'Sin título'}</Text>
               {product.soldOut && <Badge size="xs" color="red" variant="filled">Agotado</Badge>}
               {product.hidden && <Badge size="xs" color="gray" variant="filled">Oculto</Badge>}
+              {product.isNew && !product.soldOut && <Badge size="xs" color="green" variant="light">Nuevo</Badge>}
             </div>
             <Text size="xs" c="dimmed" lineClamp={1}>{cat?.name || 'Sin categoría'}</Text>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -582,7 +583,7 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
 function ProductFormModal({ open, product, categories, storeType, allProducts, onClose, onSave }) {
   const EMPTY_FORM = {
     title: '', description: '', material: '', plating: '', platingType: '', tipoPiedra: '', colorPiedra: '',
-    price: '', categoryId: '', images: [], soldOut: false,
+    price: '', categoryId: '', images: [], soldOut: false, isNew: false,
     tallasVaron: [], tallasDama: [],
     contenidos: [], modelosPrecio: [],
     showWhatsapp: false,
@@ -607,7 +608,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
         tipoPiedra: product.tipoPiedra || '',
         colorPiedra: product.colorPiedra || '',
         price: product.price || '', categoryId: product.categoryId || '',
-        images: product.images || [], soldOut: product.soldOut || false,
+        images: product.images || [], soldOut: product.soldOut || false, isNew: product.isNew || false,
         tallasVaron: hasSplit ? (product.tallasVaron || []) : legacyTallas,
         tallasDama: product.tallasDama || [],
         contenidos: product.contenidos || [],
@@ -908,6 +909,8 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
 
           <Switch label="Agotado" checked={form.soldOut}
             onChange={(e) => setForm(p => ({ ...p, soldOut: e.currentTarget.checked }))} color="orange" />
+          <Switch label="Marcar como Nuevo" checked={!!form.isNew}
+            onChange={(e) => setForm(p => ({ ...p, isNew: e.currentTarget.checked }))} color="green" />
           <Switch label="Mostrar botón de WhatsApp" checked={form.showWhatsapp}
             onChange={(e) => setForm(p => ({ ...p, showWhatsapp: e.currentTarget.checked }))} color="green" />
 

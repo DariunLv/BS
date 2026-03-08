@@ -26,18 +26,19 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
 
   const offerProducts = useMemo(() =>
     (storeData?.products || [])
-      .filter(p => p.categoryId === 'ofertas')
+      .filter(p => p.categoryId === 'ofertas' && !p.hidden)
       .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)),
     [storeData]
   );
 
   const allJewelryProducts = useMemo(() => {
     const catIds = (storeData?.categories || []).filter(c => c.storeType === 'jewelry').map(c => c.id);
-    return (storeData?.products || []).filter(p => catIds.includes(p.categoryId));
+    return (storeData?.products || []).filter(p => catIds.includes(p.categoryId) && !p.hidden);
   }, [storeData]);
 
+  // SOLO cambio: excluir productos ocultos del conteo
   const getProductCount = (catId) =>
-    (storeData?.products || []).filter(p => p.categoryId === catId).length;
+    (storeData?.products || []).filter(p => p.categoryId === catId && !p.hidden).length;
 
   const galleryImages = useMemo(() =>
     allJewelryProducts

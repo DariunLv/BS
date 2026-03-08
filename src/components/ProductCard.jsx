@@ -34,13 +34,8 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
   const [imgLoaded, setImgLoaded] = useState(false);
   const mainImage = product.images?.[0] || '';
 
-  // Badge "Nuevo" — auto si fue creado en los últimos 7 días
-  const isNew = (() => {
-    if (!product.createdAt) return false;
-    const created = new Date(product.createdAt + 'T00:00:00');
-    const diff = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
-    return diff <= 7;
-  })();
+  // CAMBIO 1: "Nuevo" es ahora manual — se activa desde AdminPanel con product.isNew
+  const isNew = !!product.isNew;
 
   const handlePreloadImages = () => {
     // Precarga imágenes al tocar/hover — antes de que abra el modal
@@ -114,25 +109,7 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
           </motion.div>
         )}
 
-        {/* Badge NUEVO */}
-        {isNew && !product.soldOut && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 300, delay: 0.1 }}
-            style={{
-              position: 'absolute', top: 10, left: 10, zIndex: 6,
-              background: 'linear-gradient(135deg, #2d8a2d, #3aab3a)',
-              color: 'white', fontSize: '0.52rem', fontWeight: 700,
-              fontFamily: '"Outfit", sans-serif', letterSpacing: '1px',
-              padding: '3px 8px', borderRadius: 10,
-              boxShadow: '0 2px 8px rgba(45,138,45,0.4)',
-              textTransform: 'uppercase',
-            }}
-          >
-            ✦ Nuevo
-          </motion.div>
-        )}
+        {/* CAMBIO 2: Badge NUEVO quitado de sobre la imagen — ahora va en la sección de info */}
 
         {/* Image counter badge */}
         {hasMultipleImages && (
@@ -203,17 +180,32 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
         {/* ====== INFO SECTION ====== */}
         <div style={{ padding: '12px 12px 14px' }}>
           {/* Titulo con shimmer dorado en hover */}
-          <h3
-            className={hovered ? 'product-title-shimmer' : ''}
-            style={{
-              fontFamily: '"Playfair Display", serif', fontSize: '0.88rem',
-              fontWeight: 600, color: COLORS.navy, marginBottom: 8, lineHeight: 1.3,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              transition: 'color 0.3s ease',
-            }}
-          >
-            {product.title || 'Sin titulo'}
-          </h3>
+          {/* CAMBIO 2: Badge "Nuevo" movido aquí, junto al título, sin tapar la imagen */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
+            <h3
+              className={hovered ? 'product-title-shimmer' : ''}
+              style={{
+                fontFamily: '"Playfair Display", serif', fontSize: '0.88rem',
+                fontWeight: 600, color: COLORS.navy, marginBottom: 0, lineHeight: 1.3,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                transition: 'color 0.3s ease', flex: 1, minWidth: 0,
+              }}
+            >
+              {product.title || 'Sin titulo'}
+            </h3>
+            {isNew && !product.soldOut && (
+              <span style={{
+                flexShrink: 0,
+                background: 'linear-gradient(135deg, #2d8a2d, #3aab3a)',
+                color: 'white', fontSize: '0.48rem', fontWeight: 700,
+                fontFamily: '"Outfit", sans-serif', letterSpacing: '1px',
+                padding: '3px 7px', borderRadius: 8,
+                textTransform: 'uppercase', marginTop: 2,
+              }}>
+                Nuevo
+              </span>
+            )}
+          </div>
 
           {/* Specs card con iconos - Material, Acabado y Piedra */}
           {(product.material || (product.platingType && product.plating) || product.tipoPiedra) && (
