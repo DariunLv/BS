@@ -86,7 +86,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
   const isAnillos = product.categoryId?.includes('anillo');
   const isPack = product.categoryId?.includes('pack');
   const hasTallas = isAnillos && (tallas.length > 0 || tallasVaron.length > 0 || tallasDama.length > 0);
-  const hasSpecs = product.material || (product.platingType && product.plating) || product.tipoPiedra;
+  const hasSpecs = product.material || (product.platingType && product.plating) || product.tipoPiedra || product.acabado;
 
   const allRings = storeData
     ? (storeData.products || []).filter(p => p.categoryId?.includes('anillo')).sort((a,b) => (a.sortOrder??9999)-(b.sortOrder??9999))
@@ -102,6 +102,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
     if (product.material) msg += `\nMaterial: ${product.material}`;
     if (product.platingType && product.plating) msg += `\n${product.platingType}: ${product.plating}`;
     if (product.tipoPiedra) msg += `\nPiedra: ${product.tipoPiedra}${product.colorPiedra ? ' ' + product.colorPiedra : ''}`;
+    if (product.acabado) msg += `\nAcabado: ${product.acabado}`;
     if (selectedTalla) {
       const label = selectedTalla.startsWith('V-') ? `Talla Varón: ${selectedTalla.slice(2)}` :
                     selectedTalla.startsWith('D-') ? `Talla Dama: ${selectedTalla.slice(2)}` :
@@ -629,6 +630,9 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                 )}
                 {product.platingType && product.plating && (
                   <SpecItem icon={IconDroplet} label={product.platingType} value={product.plating} color="#2c4a80" bg="#e6f0ff" />
+                )}
+                {product.acabado && (
+                  <SpecItem icon={IconRuler2} label="Acabado" value={product.acabado} color="#0f766e" bg="#f0fdfa" />
                 )}
                 {product.tipoPiedra && (
                   <SpecItem icon={IconDiamond} label="Piedra"

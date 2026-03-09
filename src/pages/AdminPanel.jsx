@@ -582,7 +582,7 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
 
 function ProductFormModal({ open, product, categories, storeType, allProducts, onClose, onSave }) {
   const EMPTY_FORM = {
-    title: '', description: '', material: '', plating: '', platingType: '', tipoPiedra: '', colorPiedra: '',
+    title: '', description: '', material: '', plating: '', platingType: '', tipoPiedra: '', colorPiedra: '', acabado: '',
     price: '', categoryId: '', images: [], soldOut: false, isNew: false,
     tallasVaron: [], tallasDama: [],
     contenidos: [], modelosPrecio: [],
@@ -606,6 +606,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
         material: product.material || '', plating: product.plating || '',
         platingType: product.platingType || '',
         tipoPiedra: product.tipoPiedra || '',
+        acabado: product.acabado || '',
         colorPiedra: product.colorPiedra || '',
         price: product.price || '', categoryId: product.categoryId || '',
         images: product.images || [], soldOut: product.soldOut || false, isNew: product.isNew || false,
@@ -791,6 +792,16 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                     leftSection={<IconDiamond size={15} color="#7c3aed" />}
                   />
                 </div>
+              )}
+
+              {isAnillos && (
+                <TextInput
+                  label="Acabado"
+                  placeholder="Ej: Pulido, Mate, Brillante..."
+                  value={form.acabado || ''}
+                  onChange={(e) => setForm(p => ({ ...p, acabado: e.currentTarget.value }))}
+                  radius="md"
+                />
               )}
 
               {/* Tallas solo para anillos */}

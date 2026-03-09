@@ -1,7 +1,7 @@
 // src/components/ProductCard.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { IconDiamond, IconSparkles, IconEye, IconDroplet, IconRuler2 } from '@tabler/icons-react';
+import { IconDiamond, IconSparkles, IconEye, IconDroplet, IconRuler2, IconBrush } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import ProductModal from './ProductModal';
 import { trackProductView } from '../utils/store';
@@ -34,11 +34,9 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
   const [imgLoaded, setImgLoaded] = useState(false);
   const mainImage = product.images?.[0] || '';
 
-  // CAMBIO 1: "Nuevo" es ahora manual — se activa desde AdminPanel con product.isNew
   const isNew = !!product.isNew;
 
   const handlePreloadImages = () => {
-    // Precarga imágenes al tocar/hover — antes de que abra el modal
     const imgs = product.images || (product.image ? [product.image] : []);
     imgs.forEach(src => { if (src) { const i = new Image(); i.src = src; } });
   };
@@ -109,8 +107,6 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
           </motion.div>
         )}
 
-        {/* CAMBIO 2: Badge NUEVO quitado de sobre la imagen — ahora va en la sección de info */}
-
         {/* Image counter badge */}
         {hasMultipleImages && (
           <div style={{
@@ -131,7 +127,6 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
         <div className="product-image-container" style={{ borderRadius: '18px 18px 0 0', position: 'relative' }}>
           {mainImage ? (
             <>
-              {/* Skeleton mientras carga la imagen */}
               {!imgLoaded && (
                 <div className="skeleton-shimmer" style={{ position: 'absolute', inset: 0 }} />
               )}
@@ -148,7 +143,6 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                   opacity: imgLoaded ? 1 : 0.6,
                 }}
               />
-              {/* Hover overlay con título */}
               <motion.div
                 animate={{ opacity: hovered ? 1 : 0 }}
                 transition={{ duration: 0.25 }}
@@ -179,8 +173,6 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
 
         {/* ====== INFO SECTION ====== */}
         <div style={{ padding: '12px 12px 14px' }}>
-          {/* Titulo con shimmer dorado en hover */}
-          {/* CAMBIO 2: Badge "Nuevo" movido aquí, junto al título, sin tapar la imagen */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6, marginBottom: 8 }}>
             <h3
               className={hovered ? 'product-title-shimmer' : ''}
@@ -207,8 +199,8 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
             )}
           </div>
 
-          {/* Specs card con iconos - Material, Acabado y Piedra */}
-          {(product.material || (product.platingType && product.plating) || product.tipoPiedra) && (
+          {/* Specs card con iconos - Material, Acabado, Piedra y Acabado de anillo */}
+          {(product.material || (product.platingType && product.plating) || product.tipoPiedra || product.acabado) && (
             <div style={{
               display: 'flex', flexDirection: 'column', gap: 5,
               padding: '8px 10px', borderRadius: 12,
@@ -234,7 +226,7 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                 </div>
               )}
 
-              {/* Acabado (Enchapado / Laminado / Bañado) */}
+              {/* Enchapado / Laminado / Bañado */}
               {product.platingType && product.plating && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <div style={{
@@ -248,6 +240,24 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                   <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem', lineHeight: 1.3 }}>
                     <span style={{ color: COLORS.textMuted, fontWeight: 500 }}>{product.platingType}: </span>
                     <span style={{ color: COLORS.navy, fontWeight: 700 }}>{product.plating}</span>
+                  </span>
+                </div>
+              )}
+
+              {/* Acabado */}
+              {product.acabado && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <div style={{
+                    width: 22, height: 22, borderRadius: 6,
+                    background: '#f0fdfa',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, border: '1px solid rgba(15,118,110,0.12)',
+                  }}>
+                    <IconBrush size={11} color="#0f766e" />
+                  </div>
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem', lineHeight: 1.3 }}>
+                    <span style={{ color: COLORS.textMuted, fontWeight: 500 }}>Acabado: </span>
+                    <span style={{ color: '#0f766e', fontWeight: 700 }}>{product.acabado}</span>
                   </span>
                 </div>
               )}
@@ -281,10 +291,8 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                 <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>S/.</span>
                 {fmt(product.price)}
               </div>
-              {/* Desglose combo (cuando se muestra desde categoría pack) */}
               {comboPrice !== null && packPrice !== null && (
                 <div style={{ marginTop: 8 }}>
-                  {/* Fila pack sutil */}
                   <div style={{
                     display: 'flex', justifyContent: 'space-between',
                     marginBottom: 6, padding: '0 2px',
@@ -296,15 +304,12 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                       S/.{fmt(packPrice)}
                     </span>
                   </div>
-
-                  {/* Total — diseño navy premium */}
                   <div style={{
                     position: 'relative', overflow: 'hidden',
                     background: `linear-gradient(135deg, ${COLORS.navy} 0%, #2c4a80 100%)`,
                     borderRadius: 10, padding: '7px 10px',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   }}>
-                    {/* Brillo decorativo */}
                     <div style={{
                       position: 'absolute', top: -10, right: -10,
                       width: 40, height: 40, borderRadius: '50%',

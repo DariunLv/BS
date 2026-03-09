@@ -40,6 +40,17 @@ const DEFAULT_DATA = {
 
 let cacheData = null;
 
+// ── Sistema de suscripción: notifica a React automáticamente en cada mutación ──
+const _subscribers = new Set();
+export function subscribeToStore(cb) {
+  _subscribers.add(cb);
+  return () => _subscribers.delete(cb);
+}
+function _notify() {
+  const snap = loadStore();
+  _subscribers.forEach(cb => cb(snap));
+}
+
 export function loadStore() {
   if (cacheData) return JSON.parse(JSON.stringify(cacheData));
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
@@ -53,6 +64,7 @@ let _pendingData = null;
 export function saveStore(data) {
   data._lastModified = Date.now();
   cacheData = data;
+  _notify();
   // Siempre actualizar caché local de inmediato (instantáneo)
   try { localStorage.setItem('benito_cache_v2', JSON.stringify(data)); } catch {}
   // Firebase: debounce de 600ms
@@ -219,6 +231,7 @@ export function addProduct(product) {
   }
   data.products.push(product);
   cacheData = data;
+  _notify();
   // Guardar metadatos del producto (sin imágenes) y las imágenes por separado
   const { images, ...productMeta } = product;
   saveProductToFirebase(productMeta);
@@ -237,6 +250,7 @@ export function updateProduct(id, updates) {
     }
     data.products[idx] = { ...prev, ...updates };
     cacheData = data;
+    _notify();
     const { images, ...productMeta } = data.products[idx];
     saveProductToFirebase(productMeta);
     if (images !== undefined) saveProductImagesToFirebase(id, images || []);

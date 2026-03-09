@@ -17,7 +17,7 @@ import FloatingHearts from './components/FloatingHearts';
 import SparkleTrail from './components/SparkleTrail';
 import BottomNav from './components/BottomNav';
 import PageTransition from './components/PageTransition';
-import { loadStore, setCacheData } from './utils/store';
+import { loadStore, setCacheData, subscribeToStore } from './utils/store';
 import { loadFromFirebase } from './utils/firebase';
 import AnimatedBackground from './components/AnimatedBackground';
 
@@ -56,6 +56,12 @@ export default function App() {
   const refreshData = useCallback(() => {
     const fresh = loadStore();
     setStoreData(fresh);
+  }, []);
+
+  // Suscripción automática: cualquier mutación del store actualiza la UI de inmediato
+  useEffect(() => {
+    const unsub = subscribeToStore((fresh) => setStoreData(fresh));
+    return unsub;
   }, []);
 
   // Cargar Firebase en background — si hay caché, el usuario ya ve contenido
