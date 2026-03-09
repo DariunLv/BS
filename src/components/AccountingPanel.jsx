@@ -1341,6 +1341,147 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
 }
 
 /* ================================================================
+   SELECTOR DE PRODUCTO CON IMÁGENES
+   ================================================================ */
+function ProductImageSelect({ products, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef(null);
+
+  const selected = products.find(p => p.id === value);
+  const filtered = products.filter(p =>
+    p.title?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Cerrar al hacer click fuera
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const handleSelect = (prod) => {
+    onChange(prod.id);
+    setOpen(false);
+    setSearch('');
+  };
+
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onChange(null);
+    setSearch('');
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: 4, fontFamily: '"Outfit", sans-serif', color: COLORS.navy }}>
+        2. Producto
+      </div>
+      {/* Trigger */}
+      <div
+        onClick={() => { if (products.length > 0) setOpen(v => !v); }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          border: `1px solid ${open ? COLORS.orange : COLORS.borderLight}`,
+          borderRadius: 8, padding: '7px 10px', cursor: products.length === 0 ? 'not-allowed' : 'pointer',
+          background: products.length === 0 ? '#f8f9fa' : 'white',
+          transition: 'border-color 0.15s',
+          minHeight: 42,
+        }}
+      >
+        <IconDiamond size={16} color={COLORS.textMuted} style={{ flexShrink: 0 }} />
+        {selected ? (
+          <>
+            {selected.images?.[0] ? (
+              <img src={selected.images[0]} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: COLORS.borderLight, flexShrink: 0 }} />
+            )}
+            <span style={{ flex: 1, fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', color: COLORS.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {selected.title} <span style={{ color: COLORS.orange, fontWeight: 700 }}>S/.{selected.price || '0'}</span>
+            </span>
+            <span onClick={handleClear} style={{ color: COLORS.textMuted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>✕</span>
+          </>
+        ) : (
+          <span style={{ flex: 1, fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', color: COLORS.textMuted }}>
+            {products.length === 0 ? 'Sin productos' : 'Seleccionar...'}
+          </span>
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999,
+          background: 'white', border: `1px solid ${COLORS.borderLight}`,
+          borderRadius: 10, boxShadow: '0 8px 32px rgba(26,39,68,0.14)',
+          marginTop: 4, maxHeight: 320, display: 'flex', flexDirection: 'column',
+        }}>
+          {/* Search */}
+          <div style={{ padding: '8px 10px', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+            <input
+              autoFocus
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar producto..."
+              style={{
+                width: '100%', border: 'none', outline: 'none',
+                fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem',
+                color: COLORS.navy, background: 'transparent',
+              }}
+            />
+          </div>
+          {/* Options */}
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {filtered.length === 0 && (
+              <div style={{ padding: '16px', textAlign: 'center', color: COLORS.textMuted, fontSize: '0.78rem', fontFamily: '"Outfit", sans-serif' }}>
+                Sin resultados
+              </div>
+            )}
+            {filtered.map((prod) => (
+              <div
+                key={prod.id}
+                onClick={() => handleSelect(prod)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 12px', cursor: 'pointer',
+                  background: prod.id === value ? '#f0f4ff' : 'white',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e) => { if (prod.id !== value) e.currentTarget.style.background = '#fafbff'; }}
+                onMouseLeave={(e) => { if (prod.id !== value) e.currentTarget.style.background = 'white'; }}
+              >
+                {/* Thumbnail */}
+                {prod.images?.[0] ? (
+                  <img src={prod.images[0]} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 44, height: 44, borderRadius: 8, background: COLORS.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <IconPhoto size={16} color={COLORS.textMuted} />
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem', fontWeight: 600, color: COLORS.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {prod.title}
+                  </div>
+                  <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem', color: COLORS.orange, fontWeight: 700 }}>
+                    S/.{prod.price || '0'}
+                  </div>
+                </div>
+                {prod.id === value && (
+                  <span style={{ color: COLORS.orange, fontSize: 16 }}>✓</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
    MODAL: REGISTRAR VENTA
    - Selector Categoria → Producto (auto-llena foto y precio)
    - Socio: Yefer / Frank / Ambos (con split)
@@ -1433,30 +1574,28 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
           radius="md" clearable searchable leftSection={<IconCategory size={16} />} />
 
         {form.categoryId && (
-          <Select label="2. Producto" placeholder={filteredProducts.length === 0 ? 'Sin productos' : 'Seleccionar...'}
-            value={form.productId} onChange={handleProductSelect}
-            data={filteredProducts.map(p => ({ value: p.id, label: `${p.title} - S/.${p.price || '0'}` }))}
-            radius="md" clearable searchable leftSection={<IconDiamond size={16} />}
-            disabled={filteredProducts.length === 0} />
+          <ProductImageSelect
+            products={filteredProducts}
+            value={form.productId}
+            onChange={handleProductSelect}
+          />
         )}
 
         {/* Preview producto */}
         {form.producto && (
           <Card padding="sm" radius="md" style={{ background: COLORS.offWhite, border: `1px solid ${COLORS.borderLight}` }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              {form.foto ? (
-                <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-                  <img src={form.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              ) : (
-                <div style={{ width: 48, height: 48, borderRadius: 8, background: COLORS.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <IconPhoto size={18} color={COLORS.textMuted} />
-                </div>
-              )}
-              <div>
-                <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif' }}>{form.producto}</Text>
-                <Text size="sm" fw={700} style={{ color: COLORS.orange }}>S/. {form.precio}</Text>
+            {form.foto ? (
+              <div style={{ width: '100%', borderRadius: 10, overflow: 'hidden', marginBottom: 8, maxHeight: 220 }}>
+                <img src={form.foto} alt={form.producto} style={{ width: '100%', height: 220, objectFit: 'cover', display: 'block' }} />
               </div>
+            ) : (
+              <div style={{ width: '100%', height: 100, borderRadius: 10, background: COLORS.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                <IconPhoto size={32} color={COLORS.textMuted} />
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 4 }}>
+              <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy }}>{form.producto}</Text>
+              <Text size="sm" fw={700} style={{ color: COLORS.orange, fontFamily: '"Outfit", sans-serif' }}>S/. {form.precio}</Text>
             </div>
           </Card>
         )}
