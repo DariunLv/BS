@@ -32,6 +32,7 @@ import {
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
 import StatsPanel from './StatsPanel';
+import { deductInventory, getProductInventory, getSizeStock, checkAndSyncSoldOut } from '../utils/inventory';
 
 const SOCIOS_OPTIONS = [
   { value: 'Yefer', label: 'Yefer' },
@@ -1229,7 +1230,7 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
                       <Badge size="xs" variant="light"
                         color={c.fuenteDinero === 'Accionista' ? 'yellow' : c.fuenteDinero === 'Yefer' ? 'blue' : c.fuenteDinero === 'Frank' ? 'orange' : 'grape'}
                         radius="xl" style={{ fontSize: '0.48rem', padding: '1px 5px', textTransform: 'none' }}>
-                        {c.fuenteDinero === 'Accionista' ? '💼 Accionista' : c.fuenteDinero}
+                        {c.fuenteDinero === 'Accionista' ? 'Accionista' : c.fuenteDinero}
                       </Badge>
                     )}
                   </div>
@@ -1402,7 +1403,7 @@ function ProductImageSelect({ products, value, onChange }) {
             <span style={{ flex: 1, fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', color: COLORS.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {selected.title} <span style={{ color: COLORS.orange, fontWeight: 700 }}>S/.{selected.price || '0'}</span>
             </span>
-            <span onClick={handleClear} style={{ color: COLORS.textMuted, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>✕</span>
+            <span onClick={handleClear} style={{ color: COLORS.textMuted, cursor: 'pointer', lineHeight: 1, padding: '0 2px', display: 'flex', alignItems: 'center' }}><IconX size={14} /></span>
           </>
         ) : (
           <span style={{ flex: 1, fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', color: COLORS.textMuted }}>
@@ -1470,7 +1471,7 @@ function ProductImageSelect({ products, value, onChange }) {
                   </div>
                 </div>
                 {prod.id === value && (
-                  <span style={{ color: COLORS.orange, fontSize: 16 }}>✓</span>
+                  <IconCheck size={16} color={COLORS.orange} />
                 )}
               </div>
             ))}
@@ -1491,6 +1492,8 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
     producto: '', fecha: '', precio: '', foto: '', socio: '', medioEntrega: 'Contra entrega',
     categoryId: '', productId: '', splitYefer: '', splitFrank: '',
   });
+  const [selectedTalla, setSelectedTalla] = useState('');
+  const [productInv, setProductInv] = useState(null); // inventario del producto seleccionado
 
   React.useEffect(() => {
     if (sale) {
@@ -1507,7 +1510,15 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
       const today = localToday();
       setForm({ producto: '', fecha: today, precio: '', foto: '', socio: '', medioEntrega: 'Contra entrega', categoryId: '', productId: '', splitYefer: '', splitFrank: '', costosAgregados: '', detalleCostos: '', fuenteCostos: '', rebaja: '', montoRebaja: '' });
     }
+    setSelectedTalla('');
+    setProductInv(null);
   }, [sale, open]);
+
+  // Cargar inventario del producto seleccionado
+  React.useEffect(() => {
+    if (!form.productId) { setProductInv(null); setSelectedTalla(''); return; }
+    getProductInventory(form.productId).then(inv => setProductInv(inv));
+  }, [form.productId]);
 
   const filteredProducts = useMemo(() => {
     if (!form.categoryId) return [];
@@ -1555,8 +1566,25 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
       updateSale(sale.id, form);
       notifications.show({ title: 'Actualizado', message: 'Venta actualizada', color: 'green' });
     } else {
-      addSale({ id: generateId(), ...form });
-      notifications.show({ title: 'Registrado', message: 'Venta registrada', color: 'green' });
+      addSale({ id: generateId(), ...form, tallaSold: selectedTalla || null });
+      // Descontar del inventario y auto-sincronizar soldOut si llega a 0
+      if (form.productId) {
+        deductInventory(form.productId, selectedTalla || null).then(() => {
+          checkAndSyncSoldOut(form.productId).then(isOut => {
+            if (isOut) {
+              // Auto-marcar como agotado en el catálogo
+              import('../utils/store').then(({ toggleSoldOut, loadStore }) => {
+                const data = loadStore();
+                const prod = (data.products || []).find(p => p.id === form.productId);
+                if (prod && !prod.soldOut) {
+                  toggleSoldOut(form.productId);
+                }
+              });
+            }
+          });
+        });
+      }
+      notifications.show({ title: 'Venta registrada', message: 'Stock descontado del inventario', color: 'green' });
     }
     onSave();
   };
@@ -1599,6 +1627,89 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
             </div>
           </Card>
         )}
+
+        {/* Selector de talla para anillos */}
+        {productInv?.isRing && form.productId && (() => {
+          const selectedProd = products.find(p => p.id === form.productId);
+          const tallasV = selectedProd?.tallasVaron || selectedProd?.tallas || [];
+          const tallasD = selectedProd?.tallasDama || [];
+          if (!tallasV.length && !tallasD.length) return null;
+          return (
+            <Card padding="sm" radius="md" style={{ background: '#f8f9ff', border: '1px solid rgba(44,74,128,0.15)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <IconDiamond size={15} color={COLORS.navy} />
+                <Text size="xs" fw={700} mb={8} style={{ fontFamily: '"Outfit",sans-serif', color: COLORS.navy }}>
+                  ¿Qué talla se vendió?
+                </Text>
+              </div>
+              {tallasV.length > 0 && (
+                <div style={{ marginBottom: tallasD.length > 0 ? 10 : 0 }}>
+                  <Text size="xs" mb={6} style={{ fontFamily: '"Outfit",sans-serif', color: '#2c4a80', fontWeight: 600 }}>Varón</Text>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {tallasV.map(t => {
+                      const key = `V-${t}`;
+                      const stock = getSizeStock(productInv, key);
+                      const out = stock === 0;
+                      const sel = selectedTalla === key;
+                      return (
+                        <button key={key} onClick={() => setSelectedTalla(sel ? '' : key)}
+                          style={{
+                            fontFamily: '"Outfit",sans-serif', fontSize: '0.78rem', fontWeight: 600,
+                            padding: out ? '5px 12px' : '6px 14px', borderRadius: 10,
+                            border: sel ? '2px solid #2c4a80' : out ? '1.5px solid #e11d4833' : '1.5px solid #2c4a8033',
+                            background: sel ? '#2c4a80' : out ? '#fff5f5' : '#eef2ff',
+                            color: sel ? 'white' : out ? '#e11d48' : '#2c4a80',
+                            cursor: out ? 'not-allowed' : 'pointer',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                          }}>
+                          <span>{t}</span>
+                          {stock !== null && <span style={{ fontSize: '0.5rem', opacity: 0.8 }}>{out ? 'AGOTADO' : `${stock} uds`}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {tallasD.length > 0 && (
+                <div>
+                  <Text size="xs" mb={6} mt={tallasV.length > 0 ? 8 : 0} style={{ fontFamily: '"Outfit",sans-serif', color: '#c2255c', fontWeight: 600 }}>Dama</Text>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {tallasD.map(t => {
+                      const key = `D-${t}`;
+                      const stock = getSizeStock(productInv, key);
+                      const out = stock === 0;
+                      const sel = selectedTalla === key;
+                      return (
+                        <button key={key} onClick={() => setSelectedTalla(sel ? '' : key)}
+                          style={{
+                            fontFamily: '"Outfit",sans-serif', fontSize: '0.78rem', fontWeight: 600,
+                            padding: out ? '5px 12px' : '6px 14px', borderRadius: 10,
+                            border: sel ? '2px solid #c2255c' : out ? '1.5px solid #e11d4833' : '1.5px solid #c2255c33',
+                            background: sel ? '#c2255c' : out ? '#fff5f5' : '#fff0f6',
+                            color: sel ? 'white' : out ? '#e11d48' : '#c2255c',
+                            cursor: out ? 'not-allowed' : 'pointer',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                          }}>
+                          <span>{t}</span>
+                          {stock !== null && <span style={{ fontSize: '0.5rem', opacity: 0.8 }}>{out ? 'AGOTADO' : `${stock} uds`}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {selectedTalla && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                  <IconCheck size={13} color={COLORS.orange} />
+                  <Text size="xs" style={{ fontFamily: '"Outfit",sans-serif', color: COLORS.orange, fontWeight: 600 }}>
+                    Talla seleccionada: {selectedTalla.startsWith('V-') ? `Varón ${selectedTalla.slice(2)}` : `Dama ${selectedTalla.slice(2)}`}
+                    {' — '}se descontará 1 unidad del inventario al registrar
+                  </Text>
+                </div>
+              )}
+            </Card>
+          );
+        })()}
 
         <TextInput label="Precio de venta (S/.)" placeholder="0.00" value={form.precio}
           onChange={(e) => {

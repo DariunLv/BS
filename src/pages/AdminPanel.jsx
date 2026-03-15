@@ -9,7 +9,7 @@ import {
   IconPlus, IconTrash, IconEdit, IconEye, IconEyeOff, IconHistory, IconPhoto, IconLogout, IconCategory,
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
-  IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort,
+  IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort, IconBox,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -23,6 +23,8 @@ import {
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
 import AccountingPanel from '../components/AccountingPanel';
+import InventoryPanel from '../components/InventoryPanel';
+import { saveProductInventory, buildEmptyInventory } from '../utils/inventory';
 
 const LOTTIE_PRESETS = [
   { value: 'https://lottie.host/06a5cb66-9cf7-405e-a96c-6b0c20036d5b/cBH3wxPQH3.lottie', label: 'Colibrí' },
@@ -117,6 +119,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
         <Tabs.List grow>
           <Tabs.Tab value="products" leftSection={<IconDiamond size={14} />} style={{ fontSize: '0.75rem' }}>Productos</Tabs.Tab>
           <Tabs.Tab value="categories" leftSection={<IconCategory size={14} />} style={{ fontSize: '0.75rem' }}>Categorías</Tabs.Tab>
+          <Tabs.Tab value="inventory" leftSection={<IconBox size={14} />} style={{ fontSize: '0.75rem' }}>Inventario</Tabs.Tab>
           <Tabs.Tab value="delivery" leftSection={<IconMapPin size={14} />} style={{ fontSize: '0.75rem' }}>Entregas</Tabs.Tab>
           <Tabs.Tab value="accounting" leftSection={<IconReportMoney size={14} />} style={{ fontSize: '0.75rem' }}>Cuentas</Tabs.Tab>
         </Tabs.List>
@@ -209,7 +212,18 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
                         <ProductListItem product={product} categories={categories}
                           onEdit={() => setProductModal({ open: true, product })}
                           onDelete={() => { deleteProduct(product.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Producto eliminado', color: 'red' }); }}
-                          onToggleSoldOut={() => { toggleSoldOut(product.id); onRefresh(); }}
+                          onToggleSoldOut={() => {
+                            // Si tiene stock registrado y se quiere marcar como agotado, avisar
+                            import('../utils/inventory').then(({ getProductInventory, getTotalUnits }) => {
+                              getProductInventory(product.id).then(inv => {
+                                const hasStock = inv && getTotalUnits(inv) > 0;
+                                if (!product.soldOut && hasStock) {
+                                  notifications.show({ title: 'Aviso', message: `El producto tiene ${getTotalUnits(inv)} unidades en inventario. Se marcó como agotado igualmente.`, color: 'yellow', autoClose: 5000 });
+                                }
+                                toggleSoldOut(product.id); onRefresh();
+                              });
+                            });
+                          }}
                           onToggleHidden={() => { toggleHidden(product.id); onRefresh(); }}
                         />
                       </div>
@@ -330,6 +344,16 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           })}
         </Tabs.Panel>
 
+        <Tabs.Panel value="inventory" pt="md">
+          <Text size="lg" fw={600} mb={4} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>
+            Inventario de Productos
+          </Text>
+          <Text size="xs" c="dimmed" mb="md" style={{ fontFamily: '"Outfit", sans-serif' }}>
+            Registra el stock de cada producto. Para anillos, expande para ver tallas por género.
+          </Text>
+          <InventoryPanel storeData={storeData} />
+        </Tabs.Panel>
+
         <Tabs.Panel value="delivery" pt="md">
           <Text size="lg" fw={600} mb={4} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>
             Puntos de Entrega
@@ -446,8 +470,47 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOut, onToggleHidden }) {
   const cat = categories.find(c => c.id === product.categoryId);
   const [showHistory, setShowHistory] = useState(false);
+  const [inv, setInv] = React.useState(null);
   const views = getProductViews()[product.id] || 0;
   const priceHistory = getPriceHistory(product.id);
+
+  // Cargar inventario de este producto
+  React.useEffect(() => {
+    import('../utils/inventory').then(m => {
+      m.getProductInventory(product.id).then(data => setInv(data));
+    });
+  }, [product.id, product.soldOut]);
+
+  // Calcular resumen de stock
+  const stockSummary = React.useMemo(() => {
+    if (!inv) return null;
+    const isRing = product.categoryId?.includes('anillo');
+    if (isRing && inv.sizeStock) {
+      const tallasV = product.tallasVaron || product.tallas || [];
+      const tallasD = product.tallasDama || [];
+      const vParts = tallasV.map(t => {
+        const s = inv.sizeStock[`V-${t}`] ?? null;
+        return s !== null ? `V${t}:${s}` : null;
+      }).filter(Boolean);
+      const dParts = tallasD.map(t => {
+        const s = inv.sizeStock[`D-${t}`] ?? null;
+        return s !== null ? `D${t}:${s}` : null;
+      }).filter(Boolean);
+      const total = Object.values(inv.sizeStock).reduce((a, b) => a + (parseInt(b) || 0), 0);
+      return { total, parts: [...vParts, ...dParts], isRing: true };
+    }
+    const qty = parseInt(inv.quantity) || 0;
+    return { total: qty, parts: [], isRing: false };
+  }, [inv, product]);
+
+  const stockColor = !stockSummary ? '#9ca3af'
+    : stockSummary.total === 0 ? '#e11d48'
+    : stockSummary.total <= 3 ? '#d97706'
+    : '#2d8a2d';
+  const stockBg = !stockSummary ? '#f3f4f6'
+    : stockSummary.total === 0 ? '#fee6e6'
+    : stockSummary.total <= 3 ? '#fff8e6'
+    : '#e6f9e6';
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }}>
@@ -503,6 +566,20 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
                   )}
                 </div>
               )}
+              {/* Badge de stock en vivo */}
+              {stockSummary !== null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, background: stockBg, padding: '2px 7px', borderRadius: 10, border: `1px solid ${stockColor}22` }}>
+                  <IconBox size={10} color={stockColor} />
+                  <span style={{ fontSize: '0.58rem', color: stockColor, fontFamily: '"Outfit", sans-serif', fontWeight: 700 }}>
+                    {stockSummary.total} uds
+                  </span>
+                </div>
+              )}
+              {inv?.code && (
+                <span style={{ fontSize: '0.55rem', color: COLORS.textMuted, fontFamily: '"Outfit", sans-serif', background: COLORS.offWhite, padding: '1px 6px', borderRadius: 6, border: `1px solid ${COLORS.borderLight}` }}>
+                  {inv.code}
+                </span>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -519,6 +596,56 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
             </ActionIcon>
           </div>
         </div>
+        {/* Stock por talla (anillos) — siempre visible si hay datos */}
+        {stockSummary?.isRing && inv?.sizeStock && (() => {
+          const tallasV = product.tallasVaron || product.tallas || [];
+          const tallasD = product.tallasDama || [];
+          if (!tallasV.length && !tallasD.length) return null;
+          return (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${COLORS.borderLight}` }}>
+              <Text size="xs" fw={600} mb={6} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.textMuted, fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Stock por talla
+              </Text>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {tallasV.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.6rem', fontWeight: 700, color: '#2c4a80', minWidth: 32 }}>V:</span>
+                    {tallasV.map(t => {
+                      const s = inv.sizeStock[`V-${t}`] ?? null;
+                      if (s === null) return null;
+                      const out = s === 0;
+                      return (
+                        <div key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 8, background: out ? '#fee6e6' : s <= 2 ? '#fff8e6' : '#e6f9e6', border: `1px solid ${out ? '#e11d4833' : s <= 2 ? '#d9770633' : '#2d8a2d33'}` }}>
+                          <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.62rem', fontWeight: 700, color: out ? '#e11d48' : s <= 2 ? '#d97706' : '#1a5c1a' }}>
+                            {t}: {out ? 'Agotado' : `${s}`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {tallasD.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.6rem', fontWeight: 700, color: '#c2255c', minWidth: 32 }}>D:</span>
+                    {tallasD.map(t => {
+                      const s = inv.sizeStock[`D-${t}`] ?? null;
+                      if (s === null) return null;
+                      const out = s === 0;
+                      return (
+                        <div key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 8, background: out ? '#fee6e6' : s <= 2 ? '#fff8e6' : '#e6f9e6', border: `1px solid ${out ? '#e11d4833' : s <= 2 ? '#d9770633' : '#2d8a2d33'}` }}>
+                          <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.62rem', fontWeight: 700, color: out ? '#e11d48' : s <= 2 ? '#d97706' : '#1a5c1a' }}>
+                            {t}: {out ? 'Agotado' : `${s}`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Historial de precios expandible */}
         <AnimatePresence>
           {showHistory && priceHistory.length > 0 && (
@@ -587,6 +714,8 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
     tallasVaron: [], tallasDama: [],
     contenidos: [], modelosPrecio: [],
     showWhatsapp: false,
+    code: '',
+    initialStock: {}, // { 'V-6': 2, 'D-5': 1, ... } o { qty: 3 }
   };
   const [form, setForm] = useState(EMPTY_FORM);
   const [step, setStep] = useState(1); // 1=elegir categoría, 2=rellenar datos
@@ -615,6 +744,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
         contenidos: product.contenidos || [],
         modelosPrecio: product.modelosPrecio || [],
         showWhatsapp: product.showWhatsapp || false,
+        code: product.code || '',
       });
       setStep(2); // editando: ir directo al formulario
     } else {
@@ -665,8 +795,36 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
   const handleSubmit = () => {
     if (!form.title.trim()) { notifications.show({ title: 'Error', message: 'El título es obligatorio', color: 'red' }); return; }
     if (!form.categoryId) { notifications.show({ title: 'Error', message: 'Selecciona una categoría', color: 'red' }); return; }
-    if (product) { updateProduct(product.id, form); notifications.show({ title: 'Actualizado', message: 'Producto actualizado', color: 'green' }); }
-    else { addProduct({ id: generateId(), ...form }); notifications.show({ title: 'Agregado', message: 'Producto agregado', color: 'green' }); }
+    if (product) {
+      updateProduct(product.id, form);
+      // Si cambiaron tallas, reconstruir sizeStock preservando stocks existentes
+      if (isAnillos && (form.tallasVaron.length > 0 || form.tallasDama.length > 0)) {
+        const tempProduct = { ...product, ...form };
+        const baseInv = buildEmptyInventory(tempProduct);
+        const oldStock = product._invSnapshot || {};
+        // Mezclar: preservar stock de tallas que siguen existiendo
+        Object.keys(baseInv.sizeStock || {}).forEach(k => {
+          if (oldStock[k] !== undefined) baseInv.sizeStock[k] = oldStock[k];
+        });
+        if (form.code) baseInv.code = form.code;
+        saveProductInventory(product.id, baseInv);
+      }
+      notifications.show({ title: 'Actualizado', message: 'Producto actualizado', color: 'green' });
+    } else {
+      const newId = generateId();
+      const newProduct = { id: newId, ...form };
+      addProduct(newProduct);
+      // Guardar inventario inicial
+      const inv = buildEmptyInventory(newProduct);
+      if (form.code) inv.code = form.code;
+      if (isAnillos && form.initialStock && Object.keys(form.initialStock).length > 0) {
+        inv.sizeStock = { ...inv.sizeStock, ...form.initialStock };
+      } else if (!isAnillos && form.initialStock?.qty) {
+        inv.quantity = parseInt(form.initialStock.qty) || 0;
+      }
+      saveProductInventory(newId, inv);
+      notifications.show({ title: 'Agregado', message: 'Producto agregado con inventario', color: 'green' });
+    }
     onSave();
   };
 
@@ -748,6 +906,10 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
 
           <TextInput label="Título" placeholder="Nombre del producto" value={form.title}
             onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, title: v })); }} required radius="md" />
+          <TextInput label="Código de producto (opcional)" placeholder="Ej: ANI-001, COL-023..." value={form.code || ''}
+            onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, code: v })); }} radius="md"
+            description="Código interno para identificar el producto en el inventario"
+            leftSection={<IconBox size={14} color={COLORS.textMuted} />} />
           <Textarea label="Descripción" placeholder="Descripción" value={form.description}
             onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, description: v })); }} radius="md" rows={2} />
 
@@ -924,6 +1086,75 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
             onChange={(e) => setForm(p => ({ ...p, isNew: e.currentTarget.checked }))} color="green" />
           <Switch label="Mostrar botón de WhatsApp" checked={form.showWhatsapp}
             onChange={(e) => setForm(p => ({ ...p, showWhatsapp: e.currentTarget.checked }))} color="green" />
+
+          {/* ===== STOCK INICIAL ===== */}
+          {!product && (
+            <div style={{ border: `1px solid ${COLORS.borderLight}`, borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 14px', background: 'linear-gradient(90deg,#e6f9e6,#fff)', borderBottom: `1px solid ${COLORS.borderLight}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <IconBox size={16} color="#1a5c1a" />
+                  <Text size="sm" fw={600} style={{ fontFamily: '"Outfit",sans-serif', color: '#1a5c1a' }}>Stock inicial</Text>
+                </div>
+                <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit",sans-serif', marginTop: 2 }}>
+                  {isAnillos ? 'Ingresa cuántas unidades tienes por talla' : 'Ingresa las unidades disponibles'}
+                </Text>
+              </div>
+              <div style={{ padding: '12px 14px' }}>
+                {!isAnillos ? (
+                  <NumberInput label="Unidades disponibles" placeholder="0" min={0}
+                    value={form.initialStock?.qty ?? 0}
+                    onChange={(v) => setForm(p => ({ ...p, initialStock: { qty: parseInt(v)||0 } }))}
+                    radius="md" size="sm" />
+                ) : (
+                  <>
+                    {/* Varón */}
+                    {form.tallasVaron.length > 0 && (
+                      <div style={{ marginBottom: form.tallasDama.length > 0 ? 12 : 0 }}>
+                        <Text size="xs" fw={700} mb={6} style={{ fontFamily: '"Outfit",sans-serif', color: '#2c4a80' }}>Varón</Text>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(70px,1fr))', gap: 8 }}>
+                          {form.tallasVaron.map(t => (
+                            <div key={`V-${t}`} style={{ borderRadius: 8, border: '1px solid #2c4a8033', overflow: 'hidden' }}>
+                              <div style={{ padding: '4px 6px', textAlign: 'center', background: '#eef2ff', borderBottom: '1px solid #2c4a8022' }}>
+                                <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.72rem', fontWeight: 700, color: '#2c4a80' }}>{t}</span>
+                              </div>
+                              <NumberInput size="xs" min={0} variant="unstyled"
+                                value={form.initialStock?.[`V-${t}`] ?? 0}
+                                onChange={(v) => setForm(p => ({ ...p, initialStock: { ...p.initialStock, [`V-${t}`]: parseInt(v)||0 } }))}
+                                styles={{ input: { textAlign: 'center', fontFamily: '"Outfit",sans-serif', fontSize: '0.82rem', fontWeight: 600, color: '#2c4a80', padding: '4px' } }} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Dama */}
+                    {form.tallasDama.length > 0 && (
+                      <div>
+                        <Text size="xs" fw={700} mb={6} style={{ fontFamily: '"Outfit",sans-serif', color: '#c2255c' }}>Dama</Text>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(70px,1fr))', gap: 8 }}>
+                          {form.tallasDama.map(t => (
+                            <div key={`D-${t}`} style={{ borderRadius: 8, border: '1px solid #c2255c33', overflow: 'hidden' }}>
+                              <div style={{ padding: '4px 6px', textAlign: 'center', background: '#fff0f6', borderBottom: '1px solid #c2255c22' }}>
+                                <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.72rem', fontWeight: 700, color: '#c2255c' }}>{t}</span>
+                              </div>
+                              <NumberInput size="xs" min={0} variant="unstyled"
+                                value={form.initialStock?.[`D-${t}`] ?? 0}
+                                onChange={(v) => setForm(p => ({ ...p, initialStock: { ...p.initialStock, [`D-${t}`]: parseInt(v)||0 } }))}
+                                styles={{ input: { textAlign: 'center', fontFamily: '"Outfit",sans-serif', fontSize: '0.82rem', fontWeight: 600, color: '#c2255c', padding: '4px' } }} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {form.tallasVaron.length === 0 && form.tallasDama.length === 0 && (
+                      <Text size="xs" c="dimmed" style={{ fontStyle: 'italic', fontFamily: '"Outfit",sans-serif' }}>
+                        Primero agrega las tallas arriba para ingresar el stock por talla
+                      </Text>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Imágenes */}
           <div>

@@ -52,14 +52,15 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
 
   // Lazy-load imágenes de productos en ofertas (para mostrar en el catálogo principal)
   useEffect(() => {
-    const sinImagenes = offerProducts.filter(p => !p.images?.length);
+    const sinImagenes = offerProducts.filter(p => !p.images?.length && !p._confirmedNoImage);
     if (!sinImagenes.length) return;
+    const ids = sinImagenes.map(p => p.id);
     Promise.all([
       import('../utils/firebase').then(m => m.loadCategoryImages),
       import('../utils/store').then(m => m.mergeProductImages),
     ]).then(([loadCategoryImages, mergeProductImages]) => {
-      loadCategoryImages(sinImagenes.map(p => p.id)).then(map => {
-        if (Object.keys(map).length) mergeProductImages(map);
+      loadCategoryImages(ids).then(map => {
+        mergeProductImages(map, ids);
       });
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -182,23 +183,25 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
               />
             </motion.div>
 
-            {/* Destellos ✦ en las esquinas */}
+            {/* Destellos en las esquinas */}
             {[
               { top: '-2%', left: '50%',  size: 10, delay: 0 },
               { top: '50%', left: '-2%',  size: 8,  delay: 1 },
               { top: '50%', left: '98%',  size: 8,  delay: 0.5 },
               { top: '98%', left: '50%',  size: 10, delay: 1.5 },
             ].map((s, i) => (
-              <motion.span key={i}
+              <motion.div key={i}
                 animate={{ opacity: [0, 1, 0], scale: [0.5, 1.3, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity, delay: s.delay, ease: 'easeInOut' }}
                 style={{
                   position: 'absolute', top: s.top, left: s.left,
                   transform: 'translate(-50%, -50%)',
-                  fontSize: s.size, color: COLORS.gold, pointerEvents: 'none',
-                  textShadow: `0 0 8px ${COLORS.orange}`,
+                  pointerEvents: 'none',
+                  filter: `drop-shadow(0 0 4px ${COLORS.orange})`,
                 }}
-              >✦</motion.span>
+              >
+                <IconSparkles size={s.size} color={COLORS.gold} />
+              </motion.div>
             ))}
           </motion.div>
 

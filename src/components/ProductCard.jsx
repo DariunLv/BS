@@ -162,11 +162,14 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                 </span>
               </motion.div>
             </>
-          ) : (
+          ) : product._confirmedNoImage ? (
             <div className="no-image-placeholder">
               <IconDiamond size={32} color={COLORS.borderLight} />
               <span style={{ fontSize: '0.7rem' }}>Sin imagen</span>
             </div>
+          ) : (
+            /* Imágenes aún cargando — shimmer en vez de "Sin imagen" */
+            <div className="skeleton-shimmer" style={{ width: '100%', aspectRatio: '1/1' }} />
           )}
           <div className="product-shine-overlay" />
         </div>
@@ -323,7 +326,7 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                         border: '1px solid rgba(212,165,116,0.4)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <span style={{ fontSize: '0.5rem', lineHeight: 1 }}>✦</span>
+                        <IconSparkles size={9} color={COLORS.gold} />
                       </div>
                       <span style={{
                         fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem',

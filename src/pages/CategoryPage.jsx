@@ -44,14 +44,15 @@ export default function CategoryPage({ storeData, isLoading }) {
   // Lazy-load imágenes solo para los productos de esta categoría
   useEffect(() => {
     if (!products.length) return;
-    const sinImagenes = products.filter(p => !p.images?.length);
+    const sinImagenes = products.filter(p => !p.images?.length && !p._confirmedNoImage);
     if (!sinImagenes.length) return;
+    const ids = sinImagenes.map(p => p.id);
     Promise.all([
       import('../utils/firebase').then(m => m.loadCategoryImages),
       import('../utils/store').then(m => m.mergeProductImages),
     ]).then(([loadCategoryImages, mergeProductImages]) => {
-      loadCategoryImages(sinImagenes.map(p => p.id)).then(map => {
-        if (Object.keys(map).length) mergeProductImages(map);
+      loadCategoryImages(ids).then(map => {
+        mergeProductImages(map, ids);
       });
     });
   }, [categoryId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -558,7 +559,7 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
                     <div style={{ width: 42, height: 42, borderRadius: 8, flexShrink: 0,
                       background: '#fff4e6', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       border: '1px solid rgba(247,103,7,0.15)' }}>
-                      <span style={{ fontSize: '1.1rem' }}>📦</span>
+                      <IconPackage size={20} color={COLORS.orange} />
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

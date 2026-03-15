@@ -11,6 +11,7 @@ import {
 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import { getWhatsappNumber, trackProductView } from '../utils/store';
+import { getProductInventory, isSizeOutOfStock, getSizeStock } from '../utils/inventory';
 
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
@@ -26,6 +27,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
 
   const [modalImgLoaded, setModalImgLoaded] = useState(false);
   const [selectedPackDetail, setSelectedPackDetail] = useState(null);
+  const [inv, setInv] = useState(null); // inventario del producto actual
 
   // Navegación entre productos hermanos
   const [activeIndex, setActiveIndex] = useState(siblingIndex ?? 0);
@@ -71,6 +73,13 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
     setSelectedTalla(null);
     setModalImgLoaded(false);
   }, [activeIndex]);
+
+  // Cargar inventario del producto actual
+  useEffect(() => {
+    if (!open || !product?.id) return;
+    setInv(null);
+    getProductInventory(product.id).then(data => setInv(data));
+  }, [open, product?.id]);
 
   if (!product) return null;
 
@@ -497,7 +506,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                 padding: '8px 16px', borderRadius: 12,
                 border: '1px solid rgba(247,103,7,0.2)',
               }}>
-                <span style={{ fontSize: '1.2rem' }}>💍</span>
+                <IconDiamond size={20} color={COLORS.orange} />
                 <div>
                   <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: COLORS.textMuted, display: 'block' }}>
                     Al llevarlo con tu anillo
@@ -573,7 +582,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                   <div style={{ position: 'absolute', bottom: -10, left: 10, width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(212,165,116,0.18)', border: '1px solid rgba(212,165,116,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: '0.9rem' }}>✦</span>
+                      <IconSparkles size={16} color={COLORS.gold} />
                     </div>
                     <div>
                       <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: 'rgba(232,201,160,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 1 }}>Precio total</div>
@@ -670,24 +679,32 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                   <span style={{
                     fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem',
                     color: '#2c4a80', fontWeight: 600, display: 'block', marginBottom: 6,
-                  }}>Varon</span>
+                  }}>Varón</span>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {tallasVaron.map((t, i) => {
                       const val = `V-${t}`;
                       const isSelected = selectedTalla === val;
+                      const outOfStock = isSizeOutOfStock(inv, val);
                       return (
-                        <motion.button key={i} whileTap={{ scale: 0.9 }}
-                          onClick={() => setSelectedTalla(isSelected ? null : val)}
+                        <motion.button key={i} whileTap={{ scale: outOfStock ? 1 : 0.9 }}
+                          onClick={() => !outOfStock && setSelectedTalla(isSelected ? null : val)}
                           style={{
                             fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem', fontWeight: 600,
-                            padding: '8px 18px', borderRadius: 12,
-                            border: isSelected ? '2px solid #2c4a80' : `1.5px solid ${COLORS.borderLight}`,
-                            color: isSelected ? COLORS.white : '#2c4a80',
-                            background: isSelected ? 'linear-gradient(135deg, #2c4a80, #3d6098)' : COLORS.white,
-                            cursor: 'pointer', transition: 'all 0.2s ease',
+                            padding: outOfStock ? '6px 14px' : '8px 18px', borderRadius: 12,
+                            border: outOfStock ? '1.5px solid #e11d4833' : isSelected ? '2px solid #2c4a80' : `1.5px solid ${COLORS.borderLight}`,
+                            color: outOfStock ? '#e11d48' : isSelected ? COLORS.white : '#2c4a80',
+                            background: outOfStock ? '#fff5f5' : isSelected ? 'linear-gradient(135deg, #2c4a80, #3d6098)' : COLORS.white,
+                            cursor: outOfStock ? 'not-allowed' : 'pointer',
+                            opacity: outOfStock ? 0.75 : 1,
+                            transition: 'all 0.2s ease',
                             boxShadow: isSelected ? '0 4px 12px rgba(44,74,128,0.3)' : 'none',
+                            position: 'relative',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
                           }}>
-                          {t}
+                          <span>{t}</span>
+                          {outOfStock && (
+                            <span style={{ fontSize: '0.45rem', fontWeight: 700, letterSpacing: '0.5px', color: '#e11d48' }}>AGOTADO</span>
+                          )}
                         </motion.button>
                       );
                     })}
@@ -706,19 +723,27 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                     {tallasDama.map((t, i) => {
                       const val = `D-${t}`;
                       const isSelected = selectedTalla === val;
+                      const outOfStock = isSizeOutOfStock(inv, val);
                       return (
-                        <motion.button key={i} whileTap={{ scale: 0.9 }}
-                          onClick={() => setSelectedTalla(isSelected ? null : val)}
+                        <motion.button key={i} whileTap={{ scale: outOfStock ? 1 : 0.9 }}
+                          onClick={() => !outOfStock && setSelectedTalla(isSelected ? null : val)}
                           style={{
                             fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem', fontWeight: 600,
-                            padding: '8px 18px', borderRadius: 12,
-                            border: isSelected ? '2px solid #c2255c' : `1.5px solid ${COLORS.borderLight}`,
-                            color: isSelected ? COLORS.white : '#c2255c',
-                            background: isSelected ? 'linear-gradient(135deg, #c2255c, #e64980)' : COLORS.white,
-                            cursor: 'pointer', transition: 'all 0.2s ease',
+                            padding: outOfStock ? '6px 14px' : '8px 18px', borderRadius: 12,
+                            border: outOfStock ? '1.5px solid #e11d4833' : isSelected ? '2px solid #c2255c' : `1.5px solid ${COLORS.borderLight}`,
+                            color: outOfStock ? '#e11d48' : isSelected ? COLORS.white : '#c2255c',
+                            background: outOfStock ? '#fff5f5' : isSelected ? 'linear-gradient(135deg, #c2255c, #e64980)' : COLORS.white,
+                            cursor: outOfStock ? 'not-allowed' : 'pointer',
+                            opacity: outOfStock ? 0.75 : 1,
+                            transition: 'all 0.2s ease',
                             boxShadow: isSelected ? '0 4px 12px rgba(194,37,92,0.3)' : 'none',
+                            position: 'relative',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
                           }}>
-                          {t}
+                          <span>{t}</span>
+                          {outOfStock && (
+                            <span style={{ fontSize: '0.45rem', fontWeight: 700, letterSpacing: '0.5px', color: '#e11d48' }}>AGOTADO</span>
+                          )}
                         </motion.button>
                       );
                     })}
@@ -817,7 +842,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                         background: '#fff4e6', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         border: '1px solid rgba(247,103,7,0.15)',
                       }}>
-                        <span style={{ fontSize: '1.1rem' }}>📦</span>
+                        <IconPackage size={20} color={COLORS.orange} />
                       </div>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
