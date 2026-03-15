@@ -7,7 +7,7 @@ import {
   IconDiamond, IconChevronLeft, IconChevronRight, IconRuler2,
   IconSparkles, IconPackage, IconBrandWhatsapp,
   IconHeart, IconX, IconInfoCircle, IconDroplet,
-  IconCategory, IconZoomIn,
+  IconCategory, IconZoomIn, IconGift, IconFileText,
 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import { getWhatsappNumber, trackProductView } from '../utils/store';
@@ -968,6 +968,79 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                 })}
               </div>
             </div>
+          )}
+
+          {/* ====== INCLUYE: caja de anillos + acta de promesa — solo anillos ====== */}
+          {isAnillos && !hidePacks && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: 0.12, ease: [0.22,1,0.36,1] }}
+              style={{ marginBottom: 20 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#fff4e6', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(247,103,7,0.15)' }}>
+                  <IconGift size={14} color={COLORS.orange} />
+                </div>
+                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', color: COLORS.navy, fontWeight: 600 }}>
+                  Incluye con tu anillo
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {/* Caja de anillos */}
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                  padding: '18px 12px', borderRadius: 16,
+                  background: 'linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%)',
+                  border: '1.5px solid rgba(247,103,7,0.2)',
+                  boxShadow: '0 2px 10px rgba(247,103,7,0.08)',
+                }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 16,
+                    background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 14px rgba(247,103,7,0.18)',
+                    border: '1px solid rgba(247,103,7,0.12)',
+                  }}>
+                    <IconGift size={28} color={COLORS.orange} />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem', fontWeight: 700, color: COLORS.navy, lineHeight: 1.3 }}>
+                      Caja de anillos
+                    </div>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 600, marginTop: 3 }}>
+                      Incluida
+                    </div>
+                  </div>
+                </div>
+
+                {/* Acta de promesa */}
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                  padding: '18px 12px', borderRadius: 16,
+                  background: 'linear-gradient(135deg, #f0f4ff 0%, #dde8ff 100%)',
+                  border: '1.5px solid rgba(44,74,128,0.18)',
+                  boxShadow: '0 2px 10px rgba(44,74,128,0.07)',
+                }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 16,
+                    background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 14px rgba(44,74,128,0.15)',
+                    border: '1px solid rgba(44,74,128,0.12)',
+                  }}>
+                    <IconFileText size={28} color="#2c4a80" />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem', fontWeight: 700, color: COLORS.navy, lineHeight: 1.3 }}>
+                      Acta de promesa
+                    </div>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: '#2c4a80', fontWeight: 600, marginTop: 3 }}>
+                      Opcional
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           )}
 
           {/* ====== PACKS DISPONIBLES — solo dentro de un anillo, y solo si no viene desde categoría pack ====== */}
