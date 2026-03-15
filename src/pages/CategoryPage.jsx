@@ -8,6 +8,28 @@ import {
 import ProductCard, { ProductCardSkeleton } from '../components/ProductCard';
 import { COLORS } from '../utils/theme';
 
+// Hook local: obtiene imágenes del caché, con fallback a las que ya vienen en el objeto
+function usePackImages(productId, fallbackImages) {
+  const [rev, setRev] = useState(0);
+  useEffect(() => {
+    if (!productId) return;
+    let unsub;
+    import('../utils/imageCache').then(({ subscribeToImages, preloadImages }) => {
+      preloadImages([productId]);
+      unsub = subscribeToImages(() => setRev(r => r + 1));
+    });
+    return () => { if (unsub) unsub(); };
+  }, [productId]);
+  const [cached, setCached] = useState(null);
+  useEffect(() => {
+    import('../utils/imageCache').then(({ getImages }) => {
+      setCached(getImages(productId));
+    });
+  }, [productId, rev]);
+  if (cached?.length) return cached;
+  return fallbackImages || [];
+}
+
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
 export default function CategoryPage({ storeData, isLoading }) {
@@ -41,19 +63,12 @@ export default function CategoryPage({ storeData, isLoading }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Lazy-load imágenes solo para los productos de esta categoría
+  // Pre-cargar imágenes de todos los productos de esta categoría en segundo plano
   useEffect(() => {
     if (!products.length) return;
-    const sinImagenes = products.filter(p => !p.images?.length && !p._confirmedNoImage);
-    if (!sinImagenes.length) return;
-    const ids = sinImagenes.map(p => p.id);
-    Promise.all([
-      import('../utils/firebase').then(m => m.loadCategoryImages),
-      import('../utils/store').then(m => m.mergeProductImages),
-    ]).then(([loadCategoryImages, mergeProductImages]) => {
-      loadCategoryImages(ids).then(map => {
-        mergeProductImages(map, ids);
-      });
+    const ids = products.map(p => p.id);
+    import('../utils/imageCache').then(({ preloadImagesInBatches }) => {
+      preloadImagesInBatches(ids, 6);
     });
   }, [categoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -362,7 +377,6 @@ export default function CategoryPage({ storeData, isLoading }) {
 function PackDetailPage({ pack, storeData, isLoading, onBack }) {
   const [currentImage, setCurrentImage] = useState(0);
   const [liked, setLiked] = useState(false);
-  const images = pack.images || [];
   const pPrice = parseFloat(pack.price) || 0;
 
   const ringProducts = useMemo(() =>
@@ -371,6 +385,18 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
       .sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999)),
     [storeData]
   );
+
+  // Pre-cargar imágenes del pack y de todos los anillos al entrar
+  useEffect(() => {
+    const ids = [pack.id, ...ringProducts.map(r => r.id)].filter(Boolean);
+    import('../utils/imageCache').then(({ preloadImagesInBatches }) => {
+      preloadImagesInBatches(ids, 6);
+    });
+  }, [pack.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Imágenes del pack desde el caché (hook)
+  const packCachedImages = usePackImages(pack.id, pack.images);
+  const images = packCachedImages;
 
   const nextImage = () => setCurrentImage(p => (p + 1) % images.length);
   const prevImage = () => setCurrentImage(p => (p - 1 + images.length) % images.length);

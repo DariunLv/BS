@@ -50,18 +50,11 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
   const deliveryLocations = storeData?.deliveryLocations || [];
   const shalomImage = storeData?.shalomImage || '';
 
-  // Lazy-load imágenes de productos en ofertas (para mostrar en el catálogo principal)
+  // Pre-cargar imágenes de productos en ofertas en segundo plano
   useEffect(() => {
-    const sinImagenes = offerProducts.filter(p => !p.images?.length && !p._confirmedNoImage);
-    if (!sinImagenes.length) return;
-    const ids = sinImagenes.map(p => p.id);
-    Promise.all([
-      import('../utils/firebase').then(m => m.loadCategoryImages),
-      import('../utils/store').then(m => m.mergeProductImages),
-    ]).then(([loadCategoryImages, mergeProductImages]) => {
-      loadCategoryImages(ids).then(map => {
-        mergeProductImages(map, ids);
-      });
+    if (!offerProducts.length) return;
+    import('../utils/imageCache').then(({ preloadImagesInBatches }) => {
+      preloadImagesInBatches(offerProducts.map(p => p.id), 4);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

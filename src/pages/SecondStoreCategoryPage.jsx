@@ -19,19 +19,11 @@ export default function SecondStoreCategoryPage({ storeData, onBack }) {
     [storeData, categoryId]
   );
 
-  // Lazy-load imágenes solo para los productos de esta categoría
+  // Pre-cargar imágenes en segundo plano al entrar
   useEffect(() => {
     if (!products.length) return;
-    const sinImagenes = products.filter(p => !p.images?.length && !p._confirmedNoImage);
-    if (!sinImagenes.length) return;
-    const ids = sinImagenes.map(p => p.id);
-    Promise.all([
-      import('../utils/firebase').then(m => m.loadCategoryImages),
-      import('../utils/store').then(m => m.mergeProductImages),
-    ]).then(([loadCategoryImages, mergeProductImages]) => {
-      loadCategoryImages(ids).then(map => {
-        mergeProductImages(map, ids);
-      });
+    import('../utils/imageCache').then(({ preloadImagesInBatches }) => {
+      preloadImagesInBatches(products.map(p => p.id), 6);
     });
   }, [categoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 

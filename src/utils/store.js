@@ -235,7 +235,11 @@ export function addProduct(product) {
   // Guardar metadatos del producto (sin imágenes) y las imágenes por separado
   const { images, ...productMeta } = product;
   saveProductToFirebase(productMeta);
-  if (images && images.length > 0) saveProductImagesToFirebase(product.id, images);
+  if (images && images.length > 0) {
+    saveProductImagesToFirebase(product.id, images);
+    // Inyectar en imageCache para que se vean de inmediato sin re-fetch
+    import('./imageCache').then(({ injectImages }) => injectImages(product.id, images));
+  }
   return data;
 }
 
@@ -253,7 +257,12 @@ export function updateProduct(id, updates) {
     _notify();
     const { images, ...productMeta } = data.products[idx];
     saveProductToFirebase(productMeta);
-    if (images !== undefined) saveProductImagesToFirebase(id, images || []);
+    if (images !== undefined) {
+      saveProductImagesToFirebase(id, images || []);
+      if (images?.length > 0) {
+        import('./imageCache').then(({ injectImages }) => injectImages(id, images));
+      }
+    }
   }
   return data;
 }
@@ -570,38 +579,12 @@ export function deletePagoAccionista(id) {
 }
 
 /**
- * Inyecta imágenes en los productos del caché sin disparar un guardado en Firebase.
- * Se usa después de un loadCategoryImages() para actualizar la UI con las fotos.
- * checkedIds: IDs que se consultaron en Firebase. Los que no tengan imágenes se marcan
- * como _confirmedNoImage: true para que la UI muestre "Sin imagen" en vez de shimmer.
+ * OBSOLETO — las imágenes ahora se gestionan en imageCache.js.
+ * Se mantiene la firma para no romper llamadas existentes, pero ya no
+ * inyecta imágenes en el cacheData (eso era lo que causaba los clones lentos).
  */
 export function mergeProductImages(imagesMap, checkedIds = []) {
-  if (!cacheData) return;
-  let changed = false;
-  // Inyectar imágenes encontradas
-  if (imagesMap) {
-    Object.entries(imagesMap).forEach(([id, images]) => {
-      const idx = cacheData.products.findIndex(p => p.id === id);
-      if (idx !== -1 && images.length > 0) {
-        cacheData.products[idx] = { ...cacheData.products[idx], images, _confirmedNoImage: false };
-        changed = true;
-      }
-    });
-  }
-  // Marcar los que se consultaron pero NO tienen imágenes
-  checkedIds.forEach(id => {
-    if (!imagesMap || !imagesMap[id]) {
-      const idx = cacheData.products.findIndex(p => p.id === id);
-      if (idx !== -1 && !cacheData.products[idx]._confirmedNoImage) {
-        cacheData.products[idx] = { ...cacheData.products[idx], _confirmedNoImage: true };
-        changed = true;
-      }
-    }
-  });
-  if (changed) {
-    const snap = loadStore();
-    _subscribers.forEach(cb => cb(snap));
-  }
+  // No-op intencional. Las imágenes viven en imageCache.js fuera del state de React.
 }
 
 /* ====== AUTH & UTILS ====== */

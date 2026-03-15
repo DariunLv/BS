@@ -7,8 +7,20 @@ import {
   loadAllInventory, saveProductInventory, getTotalUnits,
   getStockLevel, buildEmptyInventory,
 } from '../utils/inventory';
-import { loadCategoryImages } from '../utils/firebase';
+import { preloadImagesInBatches, getImages, subscribeToImages } from '../utils/imageCache';
 import { COLORS } from '../utils/theme';
+
+// Hook local para obtener la miniatura de un producto desde imageCache
+function useThumb(productId, fallback) {
+  const [rev, setRev] = useState(0);
+  useEffect(() => {
+    if (!productId) return;
+    const unsub = subscribeToImages(() => setRev(r => r + 1));
+    return unsub;
+  }, [productId]);
+  const cached = getImages(productId);
+  return cached?.length ? cached[0] : (fallback || '');
+}
 
 const LC = {
   ok:      { bg: '#e6f9e6', border: '#2d8a2d', text: '#1a5c1a', dot: '#2d8a2d' },
@@ -31,7 +43,6 @@ export default function InventoryPanel({ storeData }) {
   const [saving,        setSaving]        = useState({});
   const [expandedCats,  setExpandedCats]  = useState({});
   const [expandedRows,  setExpandedRows]  = useState({});
-  const [extraImages,   setExtraImages]   = useState({});
 
   useEffect(() => {
     loadAllInventory().then(data => { setInventory(data); setLoading(false); });
@@ -61,16 +72,12 @@ export default function InventoryPanel({ storeData }) {
     setSaving(p => ({ ...p, [id]: false }));
   }, []);
 
-  const handleExpandCat = useCallback(async (catId) => {
+  const handleExpandCat = useCallback((catId) => {
     setExpandedCats(prev => {
       const next = { ...prev, [catId]: !prev[catId] };
       if (next[catId]) {
-        const need = allProducts.filter(p => p.categoryId === catId && !p.images?.length);
-        if (need.length > 0) {
-          loadCategoryImages(need.map(p => p.id)).then(map => {
-            setExtraImages(prev2 => ({ ...prev2, ...Object.fromEntries(Object.entries(map).map(([k, v]) => [k, v])) }));
-          });
-        }
+        const ids = allProducts.filter(p => p.categoryId === catId).map(p => p.id);
+        if (ids.length) preloadImagesInBatches(ids, 6);
       }
       return next;
     });
@@ -140,11 +147,10 @@ export default function InventoryPanel({ storeData }) {
                   <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} style={{ overflow: 'hidden' }}>
                     <div style={{ borderTop: `1px solid ${COLORS.borderLight}`, padding: '10px 12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {prods.map(product => {
-                        const imgs = product.images?.length ? product.images : (extraImages[product.id] || []);
                         return (
                           <ProductRow
                             key={product.id}
-                            product={{ ...product, images: imgs }}
+                            product={product}
                             inv={inventory[product.id] || buildEmptyInventory(product)}
                             saving={!!saving[product.id]}
                             expanded={!!expandedRows[product.id]}
@@ -178,7 +184,7 @@ function ProductRow({ product, inv, saving, expanded, onToggle, onChange, onSave
   const tallasV = product.tallasVaron || product.tallas || [];
   const tallasD = product.tallasDama  || [];
   const hasTallas = isRing && (tallasV.length > 0 || tallasD.length > 0);
-  const thumb   = product.images?.[0] || '';
+  const thumb   = useThumb(product.id, product.images?.[0]);
 
   return (
     <div style={{ borderRadius: 12, border: `1px solid ${lc.border}44`, background: '#fafafa', overflow: 'hidden' }}>

@@ -5,6 +5,7 @@ import { IconDiamond, IconSparkles, IconEye, IconDroplet, IconRuler2, IconBrush 
 import { COLORS } from '../utils/theme';
 import ProductModal from './ProductModal';
 import { trackProductView } from '../utils/store';
+import useImages from '../hooks/useImages';
 
 // Skeleton de una sola card
 function ProductCardSkeleton() {
@@ -32,20 +33,24 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
   const [modalOpen, setModalOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const mainImage = product.images?.[0] || '';
+
+  // Imágenes del caché independiente — no entran en React state global
+  const cachedImages = useImages(product.id);
+  const images = cachedImages !== null ? cachedImages : (product.images || []);
+  const mainImage = images[0] || '';
+  const isLoading = cachedImages === null && !mainImage; // null = aún cargando
 
   const isNew = !!product.isNew;
 
   const handlePreloadImages = () => {
-    const imgs = product.images || (product.image ? [product.image] : []);
-    imgs.forEach(src => { if (src) { const i = new Image(); i.src = src; } });
+    // Las imágenes ya se están cargando via useImages — no hace falta hacer nada extra
   };
 
   const handleOpenModal = () => {
     trackProductView(product.id);
     setModalOpen(true);
   };
-  const hasMultipleImages = (product.images || []).length > 1;
+  const hasMultipleImages = images.length > 1;
 
   return (
     <>
@@ -162,14 +167,15 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
                 </span>
               </motion.div>
             </>
-          ) : product._confirmedNoImage ? (
+          ) : isLoading ? (
+            /* Imágenes aún cargando — shimmer animado */
+            <div className="skeleton-shimmer" style={{ width: '100%', aspectRatio: '1/1' }} />
+          ) : (
+            /* Confirmado sin imagen */
             <div className="no-image-placeholder">
               <IconDiamond size={32} color={COLORS.borderLight} />
               <span style={{ fontSize: '0.7rem' }}>Sin imagen</span>
             </div>
-          ) : (
-            /* Imágenes aún cargando — shimmer en vez de "Sin imagen" */
-            <div className="skeleton-shimmer" style={{ width: '100%', aspectRatio: '1/1' }} />
           )}
           <div className="product-shine-overlay" />
         </div>
@@ -431,7 +437,7 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
         }} />
       </motion.div>
 
-      <ProductModal product={product} open={modalOpen} onClose={() => setModalOpen(false)} storeData={storeData} hidePacks={hidePacks} comboPrice={comboPrice} packPrice={packPrice} packData={packData} siblingProducts={siblingProducts} siblingIndex={siblingIndex} />
+      <ProductModal product={product} open={modalOpen} onClose={() => setModalOpen(false)} storeData={storeData} hidePacks={hidePacks} comboPrice={comboPrice} packPrice={packPrice} packData={packData} siblingProducts={siblingProducts} siblingIndex={siblingIndex} cachedImages={images} />
     </>
   );
 });

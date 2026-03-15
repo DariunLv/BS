@@ -12,10 +12,11 @@ import {
 import { COLORS } from '../utils/theme';
 import { getWhatsappNumber, trackProductView } from '../utils/store';
 import { getProductInventory, isSizeOutOfStock, getSizeStock } from '../utils/inventory';
+import useImages from '../hooks/useImages';
 
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
-export default function ProductModal({ product: initialProduct, open, onClose, storeData = null, hidePacks = false, comboPrice = null, packPrice = null, packData = null, siblingProducts = null, siblingIndex = null }) {
+export default function ProductModal({ product: initialProduct, open, onClose, storeData = null, hidePacks = false, comboPrice = null, packPrice = null, packData = null, siblingProducts = null, siblingIndex = null, cachedImages = null }) {
   const [currentImage, setCurrentImage] = useState(0);
   const [selectedTalla, setSelectedTalla] = useState(null);
   const [liked, setLiked] = useState(false);
@@ -36,7 +37,11 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
   const product = hasSiblings ? siblingProducts[activeIndex] : initialProduct;
 
   const galleryRef = useRef(null);
-  const images = product?.images || [];
+  // Imágenes del caché independiente para este producto
+  const _fetchedImages = useImages(product?.id);
+  const images = (_fetchedImages !== null && _fetchedImages.length > 0)
+    ? _fetchedImages
+    : (cachedImages?.length ? cachedImages : (product?.images || []));
 
   // Precargar imágenes del producto actual y hermanos cercanos
   useEffect(() => {

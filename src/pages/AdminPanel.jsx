@@ -9,7 +9,7 @@ import {
   IconPlus, IconTrash, IconEdit, IconEye, IconEyeOff, IconHistory, IconPhoto, IconLogout, IconCategory,
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
-  IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort, IconBox,
+  IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort, IconBox, IconRefresh,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -55,6 +55,15 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
     const catIds = categories.map(c => c.id);
     return (storeData?.products || []).filter(p => catIds.includes(p.categoryId));
   }, [storeData, categories]);
+
+  // Pre-cargar imágenes de todos los productos visibles al entrar al admin
+  React.useEffect(() => {
+    const allIds = (storeData?.products || []).map(p => p.id);
+    if (!allIds.length) return;
+    import('../utils/imageCache').then(({ preloadImagesInBatches }) => {
+      preloadImagesInBatches(allIds, 5);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const deliveryLocations = storeData?.deliveryLocations || [];
   const shalomImage = storeData?.shalomImage || '';
@@ -517,13 +526,17 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
       <Card padding="sm" radius="md" style={{ border: `1px solid ${product.hidden ? '#d0d4da' : COLORS.borderLight}`, background: product.hidden ? '#f8f9fa' : COLORS.white, opacity: product.hidden ? 0.72 : 1 }}>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', background: COLORS.offWhite, flexShrink: 0, aspectRatio: '1/1' }}>
-            {product.images?.[0] ? (
-              <img src={product.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <IconPhoto size={20} color={COLORS.borderLight} />
-              </div>
-            )}
+            {(() => {
+              // Usar imágenes del caché si ya están cargadas, si no, las del producto
+              const thumb = product.images?.[0];
+              return thumb ? (
+                <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconPhoto size={20} color={COLORS.borderLight} />
+                </div>
+              );
+            })()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -708,6 +721,43 @@ function CategoryListItem({ category, productCount, onEdit, onDelete }) {
 }
 
 function ProductFormModal({ open, product, categories, storeType, allProducts, onClose, onSave }) {
+
+  // ── Generador de código automático ──────────────────────────────────────────
+  // Regla: [PREFIJO]-[AÑO2d][MES2d]-[SEQ3d]
+  // Ej: ANI-2506-001  COL-2506-003  PAK-2506-001
+  function generateProductCode(categoryId, existingProducts) {
+    // Mapa de prefijos fijos para categorías predeterminadas
+    const PREFIXES = {
+      'anillos':            'ANI',
+      'collares':           'COL',
+      'collares-parejas':   'PAR',
+      'pulseras':           'PUL',
+      'ofertas':            'OFE',
+      'packs-presentacion': 'PAK',
+      'detalles':           'DET',
+    };
+
+    // Para categorías personalizadas: primeras 3 letras en mayúscula del id/nombre
+    let prefix = PREFIXES[categoryId];
+    if (!prefix) {
+      const cat = categories.find(c => c.id === categoryId);
+      const base = (cat?.name || categoryId).replace(/[^a-zA-Z]/g, '').toUpperCase();
+      prefix = base.slice(0, 3) || 'GEN';
+    }
+
+    // Fecha: año 2 dígitos + mes 2 dígitos
+    const now = new Date();
+    const yy  = String(now.getFullYear()).slice(-2);
+    const mm  = String(now.getMonth() + 1).padStart(2, '0');
+    const datePart = `${yy}${mm}`;
+
+    // Secuencial: contar productos en esa categoría + 1
+    const count = (existingProducts || []).filter(p => p.categoryId === categoryId).length + 1;
+    const seq   = String(count).padStart(3, '0');
+
+    return `${prefix}-${datePart}-${seq}`;
+  }
+
   const EMPTY_FORM = {
     title: '', description: '', material: '', plating: '', platingType: '', tipoPiedra: '', colorPiedra: '', acabado: '',
     price: '', categoryId: '', images: [], soldOut: false, isNew: false,
@@ -751,7 +801,6 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
       setForm(EMPTY_FORM);
       setStep(1); // nuevo: elegir categoría primero
     }
-    setNewTallaVaron(''); setNewTallaDama('');
     setNewContenidoNombre(''); setNewModeloAnilloId(''); setNewModeloPrecio('');
   }, [product, open]);
 
@@ -844,7 +893,11 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
           </Text>
           {categories.map(cat => (
             <motion.button key={cat.id} whileTap={{ scale: 0.97 }}
-              onClick={() => { setForm(p => ({ ...p, categoryId: cat.id })); setStep(2); }}
+              onClick={() => {
+                const autoCode = generateProductCode(cat.id, allProducts);
+                setForm(p => ({ ...p, categoryId: cat.id, code: p.code || autoCode }));
+                setStep(2);
+              }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 16px', borderRadius: 12, border: `1.5px solid ${COLORS.borderLight}`,
@@ -906,10 +959,34 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
 
           <TextInput label="Título" placeholder="Nombre del producto" value={form.title}
             onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, title: v })); }} required radius="md" />
-          <TextInput label="Código de producto (opcional)" placeholder="Ej: ANI-001, COL-023..." value={form.code || ''}
-            onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, code: v })); }} radius="md"
-            description="Código interno para identificar el producto en el inventario"
-            leftSection={<IconBox size={14} color={COLORS.textMuted} />} />
+
+          {/* Código auto-generado — editable */}
+          <div>
+            <TextInput
+              label="Código de producto"
+              value={form.code || ''}
+              onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, code: v })); }}
+              radius="md"
+              leftSection={<IconBox size={14} color={COLORS.orange} />}
+              rightSection={
+                form.categoryId && (
+                  <motion.button whileTap={{ scale: 0.9 }}
+                    onClick={() => setForm(p => ({ ...p, code: generateProductCode(p.categoryId, allProducts) }))}
+                    title="Regenerar código"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
+                    <IconRefresh size={14} color={COLORS.textMuted} />
+                  </motion.button>
+                )
+              }
+              styles={{ label: { fontFamily: '"Outfit",sans-serif', fontSize: '0.78rem', fontWeight: 600 } }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+              <IconCheck size={11} color="#2d8a2d" />
+              <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.62rem', color: '#2d8a2d' }}>
+                Generado automáticamente — puedes editarlo
+              </span>
+            </div>
+          </div>
           <Textarea label="Descripción" placeholder="Descripción" value={form.description}
             onChange={(e) => { const v = e.currentTarget.value; setForm(p => ({ ...p, description: v })); }} radius="md" rows={2} />
 
