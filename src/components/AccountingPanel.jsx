@@ -632,7 +632,7 @@ function InvestmentListItem({ investment, onEdit, onDelete, isCapital }) {
             <Ic size={16} color={iconColor} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <Text size="xs" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{investment.descripcion || 'Sin descripcion'}</Text>
+            <Text size="xs" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit", sans-serif' }}>{investment.Descripción || 'Sin Descripción'}</Text>
             <div style={{ display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
               <Text size="xs" c="dimmed" style={{ fontSize: '0.62rem' }}>{fechaStr}</Text>
               {investment.categoria && <Badge size="xs" variant="light" color={isCapital ? 'violet' : 'red'} radius="xl" style={{ fontSize: '0.55rem' }}>{investment.categoria}</Badge>}
@@ -977,19 +977,19 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
   const movimientosFondo = [
     ...investments.filter(i => i.fuenteDinero === 'Accionista').map(i => ({
       id: i.id, fecha: i.fecha, tipo: 'gasto',
-      descripcion: i.descripcion || 'Gasto',
+      Descripción: i.Descripción || 'Gasto',
       monto: parseFloat(i.monto) || 0,
       categoria: i.categoria || '',
     })),
     ...sales.filter(s => s.fuenteCostos === 'Accionista').map(s => ({
       id: s.id + '_costo', fecha: s.fecha, tipo: 'costo_venta',
-      descripcion: `Costo de venta: ${s.producto || ''}`,
+      Descripción: `Costo de venta: ${s.producto || ''}`,
       monto: parseFloat(s.costosAgregados) || 0,
       categoria: 'Costo de venta',
     })),
     ...(capital || []).filter(c => c.fuenteDinero === 'Accionista').map(c => ({
       id: c.id + '_cap', fecha: c.fecha, tipo: 'capital',
-      descripcion: c.nombre || 'Capital',
+      Descripción: c.nombre || 'Capital',
       monto: parseFloat(c.valor) || 0,
       categoria: 'Capital / Activo',
     })),
@@ -1321,7 +1321,7 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem', lineHeight: 1.3 }}>
-                          {mov.descripcion}
+                          {mov.Descripción}
                         </Text>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                           <Text size="xs" c="dimmed" style={{ fontSize: '0.56rem' }}>{mov.fecha}</Text>
@@ -1886,14 +1886,14 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
    ================================================================ */
 function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAccionista, onClose, onSave }) {
   const [form, setForm] = useState({
-    descripcion: '', fecha: '', monto: '', categoria: '', nota: '',
+    Descripción: '', fecha: '', monto: '', categoria: '', nota: '',
     fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '', esCapital: false,
   });
 
   React.useEffect(() => {
     if (investment) {
       setForm({
-        descripcion: investment.descripcion || '', fecha: investment.fecha || '',
+        Descripción: investment.Descripción || '', fecha: investment.fecha || '',
         monto: investment.monto || '', categoria: investment.categoria || '',
         nota: investment.nota || '', fuenteDinero: investment.fuenteDinero || investment.socio || '',
         splitYefer: investment.splitYefer || '', splitFrank: investment.splitFrank || '',
@@ -1901,7 +1901,7 @@ function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAcc
       });
     } else {
       const today = localToday();
-      setForm({ descripcion: '', fecha: today, monto: '', categoria: '', nota: '', fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '', esCapital: false });
+      setForm({ Descripción: '', fecha: today, monto: '', categoria: '', nota: '', fuenteDinero: '', splitYefer: '', splitFrank: '', tipoBien: '', esCapital: false });
     }
   }, [investment, open]);
 
@@ -1923,7 +1923,7 @@ function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAcc
   const fondoDisponible = totalAccionistas - totalUsadoAccionista;
 
   const handleSubmit = () => {
-    if (!form.descripcion.trim()) { notifications.show({ title: 'Error', message: 'La descripcion es obligatoria', color: 'red' }); return; }
+    if (!form.Descripción.trim()) { notifications.show({ title: 'Error', message: 'La Descripción es obligatoria', color: 'red' }); return; }
     if (!form.monto) { notifications.show({ title: 'Error', message: 'El monto es obligatorio', color: 'red' }); return; }
     if (form.fuenteDinero === 'Ambos') {
       const sy = parseFloat(form.splitYefer) || 0;
@@ -1954,8 +1954,8 @@ function InvestmentFormModal({ open, investment, totalAccionistas, totalUsadoAcc
       centered size="md" radius="lg"
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <TextInput label="Descripcion" placeholder="Ej: Compra de 50 cajas" value={form.descripcion}
-          onChange={(e) => setForm(p => ({ ...p, descripcion: e.currentTarget.value }))} required radius="md"
+        <TextInput label="Descripción" placeholder="Ej: Compra de 50 cajas" value={form.Descripción}
+          onChange={(e) => setForm(p => ({ ...p, Descripción: e.currentTarget.value }))} required radius="md"
           leftSection={<IconPackage size={16} />} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <TextInput label="Fecha" type="date" value={form.fecha}

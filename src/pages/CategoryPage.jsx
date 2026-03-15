@@ -637,7 +637,7 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(247,103,7,0.1)' }}>
                 <IconPackage size={14} color={COLORS.orange} />
               </div>
-              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', color: COLORS.navy, fontWeight: 600 }}>Descripcion</span>
+              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', color: COLORS.navy, fontWeight: 600 }}>Descripción</span>
             </div>
             <p style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', lineHeight: 1.75,
               color: COLORS.textMuted, padding: '14px 16px', borderRadius: 12,

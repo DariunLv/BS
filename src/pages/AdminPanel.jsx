@@ -926,7 +926,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                 <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted, marginTop: 1 }}>
                   {cat.id.includes('pack') ? 'Pack de presentación con contenidos y precios por modelo' :
                    cat.id.includes('anillo') ? 'Material, acabado y tallas por género' :
-                   'Material, acabado y descripción'}
+                   'Material, acabado y Descripción'}
                 </div>
               </div>
               <span style={{ color: COLORS.borderLight, fontSize: '1rem', fontWeight: 300 }}>›</span>

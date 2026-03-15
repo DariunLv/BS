@@ -7,7 +7,7 @@ import {
   IconDiamond, IconChevronLeft, IconChevronRight, IconRuler2,
   IconSparkles, IconPackage, IconBrandWhatsapp,
   IconHeart, IconX, IconInfoCircle, IconDroplet,
-  IconCategory, IconZoomIn, IconGift, IconFileText,
+  IconCategory, IconZoomIn, IconGift, IconFileText, IconAlignLeft,
 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import { getWhatsappNumber, trackProductView } from '../utils/store';
@@ -824,7 +824,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
             </motion.div>
           )}
 
-          {/* ====== DESCRIPCION ====== */}
+          {/* ====== Descripción ====== */}
           {product.description && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -837,12 +837,12 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                   background: COLORS.orangePale, display: 'flex', alignItems: 'center', justifyContent: 'center',
                   border: '1px solid rgba(247,103,7,0.1)',
                 }}>
-                  <IconPackage size={14} color={COLORS.orange} />
+                  <IconAlignLeft size={14} color={COLORS.orange} />
                 </div>
                 <span style={{
                   fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem',
                   color: COLORS.navy, fontWeight: 600,
-                }}>Descripcion</span>
+                }}>Descripción</span>
               </div>
               <p style={{
                 fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem',
@@ -1046,131 +1046,162 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
           {/* ====== PACKS DISPONIBLES — solo dentro de un anillo, y solo si no viene desde categoría pack ====== */}
           {isAnillos && !hidePacks && allPacks.length > 0 && (
             <div style={{ marginBottom: 24 }}>
-              {/* Header */}
+
+              {/* Header premium con gradiente */}
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16,
-                paddingBottom: 12, borderBottom: `1px solid ${COLORS.borderLight}`,
+                position: 'relative', overflow: 'hidden',
+                background: `linear-gradient(135deg, ${COLORS.navy} 0%, #1a3260 100%)`,
+                borderRadius: 16, padding: '16px 18px', marginBottom: 14,
+                boxShadow: '0 4px 20px rgba(26,39,68,0.2)',
               }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 10,
-                  background: 'linear-gradient(135deg, #fff4e6, #ffe0c2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1px solid rgba(247,103,7,0.2)', flexShrink: 0,
-                }}>
-                  <IconPackage size={15} color={COLORS.orange} />
-                </div>
-                <div>
-                  <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '0.9rem', fontWeight: 700, color: COLORS.navy }}>
-                    Packs de Presentación
+                <div style={{ position: 'absolute', top: -18, right: -18, width: 80, height: 80, borderRadius: '50%', background: 'rgba(247,103,7,0.12)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', bottom: -12, left: 20, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(247,103,7,0.2)', border: '1px solid rgba(247,103,7,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <IconGift size={20} color={COLORS.orange} />
                   </div>
-                  <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: COLORS.textMuted, marginTop: 1 }}>
-                    Hazlo especial · Precio total incluido
+                  <div>
+                    <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1rem', fontWeight: 700, color: 'white', lineHeight: 1.2 }}>
+                      Packs de Presentación
+                    </div>
+                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>
+                      Hazlo especial · regala una experiencia única
+                    </div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                    <IconSparkles size={18} color="rgba(212,165,116,0.6)" />
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {allPacks.map((pack) => {
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {allPacks.map((pack, packIdx) => {
                   const ringP = parseFloat(product.price)||0;
                   const packP = parseFloat(pack.price)||0;
                   const combo = ringP + packP;
                   return (
-                    <div key={pack.id} style={{
-                      borderRadius: 16, overflow: 'hidden',
-                      border: `1px solid ${pack.soldOut ? COLORS.borderLight : 'rgba(247,103,7,0.18)'}`,
-                      background: pack.soldOut ? '#f9f9f9' : 'white',
-                      opacity: pack.soldOut ? 0.7 : 1,
-                      boxShadow: pack.soldOut ? 'none' : '0 3px 16px rgba(247,103,7,0.1)',
-                    }}>
-                      {/* Franja superior: imagen + nombre + contenidos + precio pack */}
-                      <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 100 }}>
-                        {/* Imagen — llena todo el alto, cover para 1200x1200 */}
-                        <div style={{ width: 100, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                    <motion.div
+                      key={pack.id}
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.22, delay: packIdx * 0.06, ease: [0.22,1,0.36,1] }}
+                      style={{
+                        borderRadius: 18, overflow: 'hidden',
+                        border: `1px solid ${pack.soldOut ? COLORS.borderLight : 'rgba(247,103,7,0.2)'}`,
+                        background: pack.soldOut ? '#f9f9f9' : 'white',
+                        opacity: pack.soldOut ? 0.65 : 1,
+                        boxShadow: pack.soldOut ? 'none' : '0 4px 20px rgba(26,39,68,0.1)',
+                      }}
+                    >
+                      {/* Zona imagen + info */}
+                      <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 110 }}>
+                        {/* Imagen — ocupa todo el alto, cover */}
+                        <div style={{ width: 110, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
                           <PackImg
                             packId={pack.id}
                             fallbackImages={pack.images}
                             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                            fallbackStyle={{ width: 100, height: '100%', minHeight: 100, background: 'linear-gradient(135deg, #fff4e6, #ffe0c2)' }}
+                            fallbackStyle={{ width: 110, height: '100%', minHeight: 110, background: 'linear-gradient(135deg, #fff4e6, #ffe0c2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           />
-                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 50%, rgba(255,255,255,0.15))' }} />
+                          {/* Viñeta para fusionarse */}
+                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 55%, rgba(255,255,255,0.18))' }} />
                         </div>
 
-                        {/* Info: nombre + contenidos + precio */}
-                        <div style={{ flex: 1, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '0.95rem', fontWeight: 700, color: pack.soldOut ? COLORS.textMuted : COLORS.navy, lineHeight: 1.25 }}>
+                        {/* Info derecha */}
+                        <div style={{ flex: 1, padding: '14px 14px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {/* Nombre */}
+                          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1rem', fontWeight: 700, color: pack.soldOut ? COLORS.textMuted : COLORS.navy, lineHeight: 1.25 }}>
                             {pack.title}
                           </div>
+
+                          {/* Contenidos como chips */}
                           {pack.contenidos?.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                               {pack.contenidos.map((c, i) => (
                                 <span key={i} style={{
                                   fontFamily: '"Outfit", sans-serif', fontSize: '0.52rem',
                                   background: '#fff4e6', color: COLORS.orange, fontWeight: 600,
-                                  padding: '2px 7px', borderRadius: 10,
-                                  border: '1px solid rgba(247,103,7,0.15)',
+                                  padding: '2px 8px', borderRadius: 20,
+                                  border: '1px solid rgba(247,103,7,0.18)',
                                 }}>{c.nombre}</span>
                               ))}
                             </div>
                           )}
-                          {!pack.soldOut && (
-                            <div style={{ marginTop: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 3,
-                              background: 'rgba(247,103,7,0.07)', padding: '4px 10px', borderRadius: 8,
-                              border: '1px solid rgba(247,103,7,0.18)', alignSelf: 'flex-start',
+
+                          {/* Precio pack destacado */}
+                          {!pack.soldOut ? (
+                            <div style={{ marginTop: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 3, alignSelf: 'flex-start',
+                              background: 'linear-gradient(90deg, rgba(247,103,7,0.1), rgba(247,103,7,0.04))',
+                              padding: '5px 12px', borderRadius: 10, border: '1px solid rgba(247,103,7,0.2)',
                             }}>
                               <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 600 }}>Pack</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.1rem', color: COLORS.orange, fontWeight: 900, lineHeight: 1 }}>S/.{fmt(packP)}</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.15rem', color: COLORS.orange, fontWeight: 900, lineHeight: 1 }}>S/.{fmt(packP)}</span>
                             </div>
-                          )}
-                          {pack.soldOut && (
-                            <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted, fontWeight: 600 }}>Agotado</span>
+                          ) : (
+                            <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted, fontWeight: 600, marginTop: 'auto' }}>Agotado</span>
                           )}
                         </div>
                       </div>
 
-                      {/* Franja desglose: Anillo | Pack | Total */}
+                      {/* Desglose + total — fondo navy premium */}
                       {!pack.soldOut && (
-                        <div style={{ display: 'flex', alignItems: 'stretch', borderTop: '1px solid rgba(247,103,7,0.1)' }}>
-                          <div style={{ flex: 1, padding: '9px 10px', borderRight: '1px solid rgba(247,103,7,0.1)', textAlign: 'center', background: 'rgba(247,103,7,0.02)' }}>
-                            <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600, marginBottom: 3 }}>Anillo</div>
+                        <div style={{
+                          background: `linear-gradient(90deg, ${COLORS.navy} 0%, #1e3a6e 100%)`,
+                          display: 'flex', alignItems: 'stretch',
+                        }}>
+                          {/* Anillo */}
+                          <div style={{ flex: 1, padding: '10px 8px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.48rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.7px', fontWeight: 600, marginBottom: 3 }}>Anillo</div>
                             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.navy, fontWeight: 600 }}>S/.</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1rem', color: COLORS.navy, fontWeight: 800, lineHeight: 1 }}>{fmt(ringP)}</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>S/.</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>{fmt(ringP)}</span>
                             </div>
                           </div>
-                          <div style={{ flex: 1, padding: '9px 10px', borderRight: '1px solid rgba(247,103,7,0.1)', textAlign: 'center', background: 'rgba(247,103,7,0.02)' }}>
-                            <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', color: COLORS.textMuted, textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 600, marginBottom: 3 }}>Pack</div>
+                          {/* Pack */}
+                          <div style={{ flex: 1, padding: '10px 8px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.48rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.7px', fontWeight: 600, marginBottom: 3 }}>Pack</div>
                             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.navy, fontWeight: 600 }}>S/.</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1rem', color: COLORS.navy, fontWeight: 800, lineHeight: 1 }}>{fmt(packP)}</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>S/.</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>{fmt(packP)}</span>
                             </div>
                           </div>
-                          <div style={{ flex: 1.3, padding: '9px 10px', textAlign: 'center', background: 'rgba(247,103,7,0.06)' }}>
-                            <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', color: COLORS.orange, textTransform: 'uppercase', letterSpacing: '0.6px', fontWeight: 700, marginBottom: 3 }}>Total</div>
+                          {/* Total — destacado en naranja */}
+                          <div style={{ flex: 1.4, padding: '10px 10px', textAlign: 'center', background: 'rgba(247,103,7,0.15)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 3 }}>
+                              <IconSparkles size={8} color={COLORS.orange} />
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.48rem', color: COLORS.orange, textTransform: 'uppercase', letterSpacing: '0.7px', fontWeight: 700 }}>Total</span>
+                            </div>
                             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 700 }}>S/.</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.1rem', color: COLORS.orange, fontWeight: 900, lineHeight: 1 }}>{fmt(combo)}</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: 'rgba(247,103,7,0.85)', fontWeight: 600 }}>S/.</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.2rem', color: COLORS.orange, fontWeight: 900, lineHeight: 1 }}>{fmt(combo)}</span>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Botón Ver contenido */}
+                      {/* Botón CTA */}
                       <button
                         onClick={() => setSelectedPackDetail(pack)}
                         style={{
-                          width: '100%', padding: '10px 14px',
-                          background: pack.soldOut ? 'transparent' : COLORS.navy,
-                          border: 'none', borderTop: `1px solid ${pack.soldOut ? COLORS.borderLight : COLORS.navy}`,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          fontFamily: '"Outfit", sans-serif', fontSize: '0.7rem',
+                          width: '100%', padding: '11px 14px',
+                          background: pack.soldOut ? 'transparent' : `linear-gradient(90deg, ${COLORS.orange} 0%, #ff7a1a 100%)`,
+                          border: 'none',
+                          cursor: pack.soldOut ? 'default' : 'pointer',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                          fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem',
                           color: pack.soldOut ? COLORS.textMuted : 'white',
-                          fontWeight: 600, letterSpacing: '0.3px',
+                          fontWeight: 700, letterSpacing: '0.4px',
+                          boxShadow: pack.soldOut ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.15)',
                         }}
                       >
-                        Ver contenido del pack
-                        <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>›</span>
+                        {pack.soldOut ? 'Agotado' : (
+                          <>
+                            <IconGift size={14} color="white" />
+                            Ver contenido del pack
+                          </>
+                        )}
                       </button>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>

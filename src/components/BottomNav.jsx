@@ -25,7 +25,7 @@ export default function BottomNav({ onStoreChange }) {
       id: 'home',
       label: 'Inicio',
       icon: IconHome,
-      active: isHome && false, // nunca activo, solo acción
+      active: isHome && false,
       onClick: () => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); },
     },
     {
@@ -59,32 +59,9 @@ export default function BottomNav({ onStoreChange }) {
                 WebkitTapHighlightColor: 'transparent',
               }}
             >
-              {/* Burbuja de fondo activa */}
-              <AnimatePresence>
-                {item.active && (
-                  <motion.div
-                    layoutId="navBubble"
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-                    style={{
-                      position: 'absolute',
-                      top: -2, left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: 44, height: 44,
-                      borderRadius: '50%',
-                      background: `radial-gradient(circle, rgba(247,103,7,0.14) 0%, rgba(247,103,7,0.05) 100%)`,
-                      border: '1px solid rgba(247,103,7,0.18)',
-                      zIndex: 0,
-                    }}
-                  />
-                )}
-              </AnimatePresence>
-
-              {/* Ícono con rebote al activarse */}
+              {/* Ícono */}
               <motion.div
-                animate={item.active ? { y: [-3, 0], scale: [1.2, 1] } : { y: 0, scale: 1 }}
+                animate={item.active ? { y: [-3, 0], scale: [1.15, 1] } : { y: 0, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 18 }}
                 style={{ position: 'relative', zIndex: 1 }}
               >
@@ -110,19 +87,21 @@ export default function BottomNav({ onStoreChange }) {
                 {item.label}
               </motion.span>
 
-              {/* Punto indicador arriba */}
+              {/* Línea naranja debajo del label — indica sección activa */}
               <AnimatePresence>
                 {item.active && (
                   <motion.div
+                    layoutId="navIndicator"
                     initial={{ scaleX: 0, opacity: 0 }}
                     animate={{ scaleX: 1, opacity: 1 }}
                     exit={{ scaleX: 0, opacity: 0 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                     style={{
-                      position: 'absolute', top: -8,
-                      width: 18, height: 2.5,
+                      position: 'absolute', bottom: -6,
+                      width: 24, height: 3,
                       borderRadius: 2,
                       background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.gold})`,
+                      transformOrigin: 'center',
                     }}
                   />
                 )}
