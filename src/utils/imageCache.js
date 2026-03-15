@@ -7,6 +7,12 @@ const _cache   = new Map(); // productId → string[] (base64 images)
 const _pending = new Set(); // productIds actualmente en vuelo
 const _subs    = new Set(); // callbacks de suscripción
 
+// Exponer getImages globalmente para acceso sincrónico desde cualquier módulo
+// sin necesidad de async/await (útil en useMemo, renders, etc.)
+if (typeof window !== 'undefined') {
+  window.__imgCache = { get: (id) => _cache.get(id) };
+}
+
 /** Suscribirse a cambios del caché. Devuelve función de desuscripción. */
 export function subscribeToImages(cb) {
   _subs.add(cb);

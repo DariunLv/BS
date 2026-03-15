@@ -1,7 +1,7 @@
 // src/components/ProductCard.jsx
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { IconDiamond, IconSparkles, IconEye, IconDroplet, IconRuler2, IconBrush } from '@tabler/icons-react';
+import { IconDiamond, IconSparkles, IconEye, IconDroplet, IconBrush } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import ProductModal from './ProductModal';
 import { trackProductView } from '../utils/store';
@@ -124,7 +124,7 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
             <span style={{
               fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem',
               color: 'white', fontWeight: 500,
-            }}>{product.images.length}</span>
+            }}>{images.length}</span>
           </div>
         )}
 
@@ -293,138 +293,123 @@ const ProductCard = React.memo(function ProductCard({ product, index = 0, showOf
             </div>
           )}
 
-          {/* Precio + Stock */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div className="price-tag" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>S/.</span>
-                {fmt(product.price)}
-              </div>
-              {comboPrice !== null && packPrice !== null && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between',
-                    marginBottom: 6, padding: '0 2px',
-                  }}>
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.textMuted }}>
-                      + Pack
-                    </span>
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.textMuted }}>
-                      S/.{fmt(packPrice)}
-                    </span>
-                  </div>
-                  <div style={{
-                    position: 'relative', overflow: 'hidden',
-                    background: `linear-gradient(135deg, ${COLORS.navy} 0%, #2c4a80 100%)`,
-                    borderRadius: 10, padding: '7px 10px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  }}>
-                    <div style={{
-                      position: 'absolute', top: -10, right: -10,
-                      width: 40, height: 40, borderRadius: '50%',
-                      background: 'rgba(212,165,116,0.15)',
-                      pointerEvents: 'none',
-                    }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <div style={{
-                        width: 14, height: 14, borderRadius: 4,
-                        background: `rgba(212,165,116,0.25)`,
-                        border: '1px solid rgba(212,165,116,0.4)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <IconSparkles size={9} color={COLORS.gold} />
-                      </div>
-                      <span style={{
-                        fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem',
-                        color: COLORS.goldLight, fontWeight: 600,
-                        letterSpacing: '0.8px', textTransform: 'uppercase',
-                      }}>Total</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                      <span style={{
-                        fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
-                        color: COLORS.goldLight, fontWeight: 500,
-                      }}>S/.</span>
-                      <span style={{
-                        fontFamily: '"Playfair Display", serif', fontSize: '1.1rem',
-                        color: 'white', fontWeight: 700, lineHeight: 1,
-                      }}>{fmt(comboPrice)}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {product.categoryId?.includes('pack') && product.extraPrice && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3,
-                  background: 'linear-gradient(90deg, rgba(247,103,7,0.1), rgba(247,103,7,0.05))',
-                  padding: '2px 7px', borderRadius: 6,
-                  border: '1px solid rgba(247,103,7,0.2)',
-                }}>
-                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.orange, fontWeight: 700 }}>
-                    + S/.{fmt(product.extraPrice)} con tu anillo
-                  </span>
-                </div>
-              )}
-            </div>
-            {!product.soldOut && (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 3,
-                background: '#e6f9e6', padding: '2px 8px', borderRadius: 12,
-                border: '1px solid rgba(45,138,45,0.12)',
-              }}>
-                <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#2d8a2d' }} />
-                <span style={{
-                  fontFamily: '"Outfit", sans-serif', fontSize: '0.52rem',
-                  color: '#2d8a2d', fontWeight: 600, letterSpacing: '0.3px',
-                }}>Stock</span>
-              </div>
-            )}
-          </div>
+          {/* ====== PRECIO + STOCK ====== */}
+          {comboPrice !== null && packPrice !== null ? (
+            /* ── Modo combo: pack + anillo ── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
 
-          {/* Tallas — solo para anillos */}
-          {product.categoryId?.includes('anillo') &&
-           ((product.tallasVaron?.length > 0) || (product.tallasDama?.length > 0)) && (
-            <div style={{
-              marginTop: 8,
-              paddingTop: 8,
-              borderTop: `1px solid ${COLORS.borderLight}`,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-            }}>
-              <IconRuler2 size={12} color={COLORS.textMuted} style={{ flexShrink: 0 }} />
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {product.tallasVaron?.length > 0 && (
+              {/* Precio del anillo + badge stock en la misma fila */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="price-tag" style={{ fontSize: '1rem', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                  <span style={{ fontSize: '0.65rem', fontWeight: 400 }}>S/.</span>
+                  {fmt(product.price)}
+                </div>
+                {!product.soldOut && (
                   <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: '#eef2ff',
-                    padding: '3px 8px',
-                    borderRadius: 6,
-                    border: '1px solid rgba(44,74,128,0.12)',
+                    display: 'flex', alignItems: 'center', gap: 3,
+                    background: '#e6f9e6', padding: '2px 7px', borderRadius: 10,
+                    border: '1px solid rgba(45,138,45,0.15)',
                   }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#2c4a80', flexShrink: 0 }} />
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: '#2c4a80', fontWeight: 600, letterSpacing: '0.2px' }}>
-                      Varón · {product.tallasVaron.length}
-                    </span>
-                  </div>
-                )}
-                {product.tallasDama?.length > 0 && (
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: '#fff0f6',
-                    padding: '3px 8px',
-                    borderRadius: 6,
-                    border: '1px solid rgba(194,37,92,0.12)',
-                  }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#c2255c', flexShrink: 0 }} />
-                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: '#c2255c', fontWeight: 600, letterSpacing: '0.2px' }}>
-                      Dama · {product.tallasDama.length}
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#2d8a2d' }} />
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', color: '#2d8a2d', fontWeight: 600 }}>
+                      Stock
                     </span>
                   </div>
                 )}
               </div>
+
+              {/* + Pack */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '3px 8px', borderRadius: 7,
+                background: 'rgba(247,103,7,0.05)',
+                border: '1px solid rgba(247,103,7,0.12)',
+              }}>
+                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: COLORS.orange, fontWeight: 500 }}>
+                  + Pack
+                </span>
+                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: COLORS.orange, fontWeight: 600 }}>
+                  S/.{fmt(packPrice)}
+                </span>
+              </div>
+
+              {/* Bloque TOTAL */}
+              <div style={{
+                position: 'relative', overflow: 'hidden',
+                background: `linear-gradient(135deg, ${COLORS.navy} 0%, #2c4a80 100%)`,
+                borderRadius: 10, padding: '8px 12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div style={{
+                  position: 'absolute', top: -12, right: -12,
+                  width: 44, height: 44, borderRadius: '50%',
+                  background: 'rgba(212,165,116,0.12)', pointerEvents: 'none',
+                }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{
+                    width: 16, height: 16, borderRadius: 5,
+                    background: 'rgba(212,165,116,0.2)',
+                    border: '1px solid rgba(212,165,116,0.35)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <IconSparkles size={9} color={COLORS.gold} />
+                  </div>
+                  <span style={{
+                    fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem',
+                    color: 'rgba(212,165,116,0.85)', fontWeight: 700,
+                    letterSpacing: '0.8px', textTransform: 'uppercase',
+                  }}>Total</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                  <span style={{
+                    fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem',
+                    color: 'rgba(255,255,255,0.7)', fontWeight: 500,
+                  }}>S/.</span>
+                  <span style={{
+                    fontFamily: '"Outfit", sans-serif', fontSize: '1.15rem',
+                    color: 'white', fontWeight: 800, lineHeight: 1,
+                  }}>{fmt(comboPrice)}</span>
+                </div>
+              </div>
+            </div>
+
+          ) : (
+            /* ── Modo normal ── */
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div className="price-tag" style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 400 }}>S/.</span>
+                  {fmt(product.price)}
+                </div>
+                {product.categoryId?.includes('pack') && product.extraPrice && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3,
+                    background: 'linear-gradient(90deg, rgba(247,103,7,0.1), rgba(247,103,7,0.05))',
+                    padding: '2px 7px', borderRadius: 6,
+                    border: '1px solid rgba(247,103,7,0.2)',
+                  }}>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', color: COLORS.orange, fontWeight: 700 }}>
+                      + S/.{fmt(product.extraPrice)} con tu anillo
+                    </span>
+                  </div>
+                )}
+              </div>
+              {!product.soldOut && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  background: '#e6f9e6', padding: '2px 8px', borderRadius: 12,
+                  border: '1px solid rgba(45,138,45,0.12)',
+                }}>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#2d8a2d' }} />
+                  <span style={{
+                    fontFamily: '"Outfit", sans-serif', fontSize: '0.52rem',
+                    color: '#2d8a2d', fontWeight: 600, letterSpacing: '0.3px',
+                  }}>Stock</span>
+                </div>
+              )}
             </div>
           )}
+
         </div>
 
         {/* Decorative bottom accent */}

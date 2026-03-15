@@ -40,12 +40,24 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
   const getProductCount = (catId) =>
     (storeData?.products || []).filter(p => p.categoryId === catId && !p.hidden).length;
 
-  const galleryImages = useMemo(() =>
-    allJewelryProducts
-      .flatMap(p => (p.images || []).map(img => ({ image: img, text: p.title })))
-      .slice(0, 24),
-    [allJewelryProducts]
-  );
+  const [galRev, setGalRev] = React.useState(0);
+  React.useEffect(() => {
+    let unsub;
+    import('../utils/imageCache').then(({ subscribeToImages }) => {
+      unsub = subscribeToImages(() => setGalRev(r => r + 1));
+    });
+    return () => { if (unsub) unsub(); };
+  }, []);
+
+  const galleryImages = useMemo(() => {
+    let result = [];
+    allJewelryProducts.forEach(p => {
+      const cached = window.__imgCache?.get(p.id);
+      const imgs = (cached?.length ? cached : p.images) || [];
+      imgs.forEach(img => result.push({ image: img, text: p.title }));
+    });
+    return result.slice(0, 24);
+  }, [allJewelryProducts, galRev]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const deliveryLocations = storeData?.deliveryLocations || [];
   const shalomImage = storeData?.shalomImage || '';

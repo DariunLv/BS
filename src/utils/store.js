@@ -495,7 +495,7 @@ export function completePendingSale(id) {
   const idx = data.pendingSales.findIndex(p => p.id === id);
   if (idx !== -1) {
     data.pendingSales[idx].completed = true;
-    data.pendingSales[idx].completedDate = new Date().toISOString().split('T')[0];
+    data.pendingSales[idx].completedDate = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
     saveStore(data);
   }
   return data;

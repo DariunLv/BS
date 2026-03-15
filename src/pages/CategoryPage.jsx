@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   IconDiamond, IconChevronLeft, IconChevronRight,
-  IconPackage, IconHeart, IconFilter,
+  IconPackage, IconHeart, IconFilter, IconRuler2,
 } from '@tabler/icons-react';
 import ProductCard, { ProductCardSkeleton } from '../components/ProductCard';
 import { COLORS } from '../utils/theme';
@@ -76,6 +76,8 @@ export default function CategoryPage({ storeData, isLoading }) {
   const isAnillos = categoryId?.includes('anillo');
   const [filterMaterial, setFilterMaterial] = useState('todos');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [filterTalla, setFilterTalla] = useState('todos');
+  const [filterPiedra, setFilterPiedra] = useState('todos');
   const filterRef = useRef(null);
 
   // Cerrar dropdown al tocar fuera
@@ -93,10 +95,49 @@ export default function CategoryPage({ storeData, isLoading }) {
     return Array.from(set).sort();
   }, [products, isAnillos]);
 
+  // Detectar tipo de talla de un producto:
+  // 'ajustable' si ALGUNA talla contiene "ajust" (ej: "Ajustable", "ajustable")
+  // 'amedida'   si tiene tallas numéricas/fijas y ninguna es ajustable
+  // null        si no tiene tallas registradas
+  const getTallaTipo = (product) => {
+    const todas = [
+      ...(product.tallasVaron || product.tallas || []),
+      ...(product.tallasDama || []),
+    ];
+    if (!todas.length) return null;
+    const tieneAjust = todas.some(t => String(t).toLowerCase().includes('ajust'));
+    return tieneAjust ? 'ajustable' : 'amedida';
+  };
+
+  // Contar productos de cada tipo para mostrar en los botones
+  const countTallaTipo = useMemo(() => {
+    if (!isAnillos) return { ajustable: 0, amedida: 0 };
+    let aj = 0, am = 0;
+    products.forEach(p => {
+      const tipo = getTallaTipo(p);
+      if (tipo === 'ajustable') aj++;
+      else if (tipo === 'amedida') am++;
+    });
+    return { ajustable: aj, amedida: am };
+  }, [products, isAnillos]);
+
+  // Tipos de piedra únicos de los productos
+  const piedraTypes = useMemo(() => {
+    if (!isAnillos) return [];
+    const set = new Set();
+    products.forEach(p => { if (p.tipoPiedra?.trim()) set.add(p.tipoPiedra.trim()); });
+    return Array.from(set).sort();
+  }, [products, isAnillos]);
+
   const filteredProducts = useMemo(() => {
-    if (!isAnillos || filterMaterial === 'todos') return products;
-    return products.filter(p => p.material?.trim() === filterMaterial);
-  }, [products, isAnillos, filterMaterial]);
+    if (!isAnillos) return products;
+    let result = products;
+    if (filterMaterial !== 'todos') result = result.filter(p => p.material?.trim() === filterMaterial);
+    if (filterTalla === 'ajustable') result = result.filter(p => getTallaTipo(p) === 'ajustable');
+    if (filterTalla === 'amedida')   result = result.filter(p => getTallaTipo(p) === 'amedida');
+    if (filterPiedra !== 'todos')    result = result.filter(p => p.tipoPiedra?.trim() === filterPiedra);
+    return result;
+  }, [products, isAnillos, filterMaterial, filterTalla, filterPiedra]);
 
   if (!category) {
     return (
@@ -201,12 +242,39 @@ export default function CategoryPage({ storeData, isLoading }) {
       {/* ── GRID: packs o productos normales ── */}
       <section style={{ padding: '20px 16px 32px', background: 'rgba(255,255,255,0.9)' }}>
 
-        {/* FILTRO DE MATERIALES — dropdown selector */}
-        {isAnillos && materials.length > 1 && (
-          <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* FILTROS para anillos */}
+        {isAnillos && (
+          <div style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-            {/* Botón selector */}
-            <div ref={filterRef} style={{ position: 'relative' }}>
+            {/* Fila de filtros en dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+
+              {/* Filtro por tipo de talla — dropdown */}
+              {(countTallaTipo.ajustable > 0 || countTallaTipo.amedida > 0) && (
+                <TallaFilterDropdown
+                  filterTalla={filterTalla}
+                  setFilterTalla={setFilterTalla}
+                  countAmedida={countTallaTipo.amedida}
+                  countAjustable={countTallaTipo.ajustable}
+                  products={products}
+                />
+              )}
+
+              {/* Filtro por tipo de piedra — dropdown */}
+              {piedraTypes.length > 0 && (
+                <PiedraFilterDropdown
+                  filterPiedra={filterPiedra}
+                  setFilterPiedra={setFilterPiedra}
+                  piedraTypes={piedraTypes}
+                  products={products}
+                />
+              )}
+
+            {/* Filtro por material (dropdown existente) */}
+            {materials.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+
+                <div ref={filterRef} style={{ position: 'relative' }}>
               <motion.button
                 whileTap={{ scale: 0.96 }}
                 onClick={() => setFilterOpen(v => !v)}
@@ -314,7 +382,7 @@ export default function CategoryPage({ storeData, isLoading }) {
               </AnimatePresence>
             </div>
 
-            {/* Contador de resultados o chip para limpiar filtro */}
+            {/* Chip para limpiar filtro de material */}
             <AnimatePresence>
               {filterMaterial !== 'todos' && (
                 <motion.button
@@ -328,10 +396,28 @@ export default function CategoryPage({ storeData, isLoading }) {
                     textUnderlineOffset: 2,
                   }}
                 >
-                  {filteredProducts.length} de {products.length} · quitar filtro
+                  {filteredProducts.length} de {products.length} · quitar filtro material
                 </motion.button>
               )}
             </AnimatePresence>
+              </div>
+            )}
+
+            </div>{/* end fila de filtros */}
+
+            {/* Contador total cuando hay algún filtro activo */}
+            {(filterMaterial !== 'todos' || filterTalla !== 'todos' || filterPiedra !== 'todos') && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted }}>
+                  {filteredProducts.length} de {products.length} productos
+                </span>
+                <motion.button whileTap={{ scale: 0.93 }}
+                  onClick={() => { setFilterMaterial('todos'); setFilterTalla('todos'); setFilterPiedra('todos'); }}
+                  style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.orange, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                  limpiar filtros
+                </motion.button>
+              </div>
+            )}
           </div>
         )}
 
@@ -636,6 +722,229 @@ function PackDetailPage({ pack, storeData, isLoading, onBack }) {
 // ─────────────────────────────────────────────
 // Banner en anillos → redirige a packs
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Dropdown: filtro por tipo de talla (A medida / Ajustable)
+// ─────────────────────────────────────────────
+function TallaFilterDropdown({ filterTalla, setFilterTalla, countAmedida, countAjustable, products }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const options = [
+    { key: 'todos',     label: 'Todos los tipos', count: countAmedida + countAjustable },
+    { key: 'amedida',   label: 'A medida',         count: countAmedida },
+    { key: 'ajustable', label: 'Ajustable',         count: countAjustable },
+  ];
+
+  const activeLabel = filterTalla === 'amedida' ? 'A medida'
+    : filterTalla === 'ajustable' ? 'Ajustable'
+    : 'Talla';
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <motion.button
+        whileTap={{ scale: 0.96 }}
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem',
+          fontWeight: filterTalla !== 'todos' ? 600 : 500,
+          padding: '7px 14px', borderRadius: 22, cursor: 'pointer',
+          border: filterTalla !== 'todos'
+            ? `1.5px solid ${COLORS.navy}`
+            : `1px solid ${COLORS.borderLight}`,
+          background: filterTalla !== 'todos'
+            ? 'rgba(26,39,68,0.08)'
+            : 'rgba(255,255,255,0.9)',
+          color: filterTalla !== 'todos' ? COLORS.navy : COLORS.textMuted,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          backdropFilter: 'blur(8px)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <IconRuler2 size={13} />
+        {activeLabel}
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          style={{ display: 'flex', alignItems: 'center' }}
+        >
+          <IconChevronRight size={13} style={{ transform: 'rotate(90deg)' }} />
+        </motion.span>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+              zIndex: 100, minWidth: 180,
+              background: 'rgba(255,255,255,0.97)',
+              border: `1px solid ${COLORS.borderLight}`,
+              borderRadius: 14,
+              boxShadow: '0 8px 32px rgba(26,39,68,0.12)',
+              overflow: 'hidden',
+              backdropFilter: 'blur(16px)',
+            }}
+          >
+            {options.map((opt, i) => {
+              const active = filterTalla === opt.key;
+              return (
+                <motion.button
+                  key={opt.key}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setFilterTalla(opt.key); setOpen(false); }}
+                  style={{
+                    width: '100%', textAlign: 'left',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem',
+                    fontWeight: active ? 600 : 400,
+                    color: active ? COLORS.navy : COLORS.navy,
+                    background: active ? 'rgba(26,39,68,0.07)' : 'transparent',
+                    border: 'none', cursor: 'pointer',
+                    borderBottom: i < options.length - 1 ? `1px solid ${COLORS.borderLight}` : 'none',
+                  }}
+                >
+                  <span>{opt.label}</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.5, fontWeight: 400 }}>
+                    {opt.count}
+                  </span>
+                </motion.button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Dropdown: filtro por tipo de piedra
+// ─────────────────────────────────────────────
+function PiedraFilterDropdown({ filterPiedra, setFilterPiedra, piedraTypes, products }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    if (open) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const activeLabel = filterPiedra !== 'todos' ? filterPiedra : 'Piedra';
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <motion.button
+        whileTap={{ scale: 0.96 }}
+        onClick={() => setOpen(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem',
+          fontWeight: filterPiedra !== 'todos' ? 600 : 500,
+          padding: '7px 14px', borderRadius: 22, cursor: 'pointer',
+          border: filterPiedra !== 'todos'
+            ? '1.5px solid #7c3aed'
+            : `1px solid ${COLORS.borderLight}`,
+          background: filterPiedra !== 'todos'
+            ? '#f3f0ff'
+            : 'rgba(255,255,255,0.9)',
+          color: filterPiedra !== 'todos' ? '#7c3aed' : COLORS.textMuted,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          backdropFilter: 'blur(8px)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <IconDiamond size={13} color={filterPiedra !== 'todos' ? '#7c3aed' : COLORS.textMuted} />
+        {activeLabel}
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          style={{ display: 'flex', alignItems: 'center' }}
+        >
+          <IconChevronRight size={13} style={{ transform: 'rotate(90deg)' }} />
+        </motion.span>
+      </motion.button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+              zIndex: 100, minWidth: 180,
+              background: 'rgba(255,255,255,0.97)',
+              border: `1px solid ${COLORS.borderLight}`,
+              borderRadius: 14,
+              boxShadow: '0 8px 32px rgba(26,39,68,0.12)',
+              overflow: 'hidden',
+              backdropFilter: 'blur(16px)',
+            }}
+          >
+            {/* Opción Todos */}
+            <motion.button whileTap={{ scale: 0.98 }}
+              onClick={() => { setFilterPiedra('todos'); setOpen(false); }}
+              style={{
+                width: '100%', textAlign: 'left',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px',
+                fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem',
+                fontWeight: filterPiedra === 'todos' ? 600 : 400,
+                color: filterPiedra === 'todos' ? '#7c3aed' : COLORS.navy,
+                background: filterPiedra === 'todos' ? '#f3f0ff' : 'transparent',
+                border: 'none', cursor: 'pointer',
+                borderBottom: `1px solid ${COLORS.borderLight}`,
+              }}
+            >
+              <span>Todas las piedras</span>
+              <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>{products.length}</span>
+            </motion.button>
+
+            {/* Opciones de piedra */}
+            {piedraTypes.map((tipo, i) => {
+              const count = products.filter(p => p.tipoPiedra?.trim() === tipo).length;
+              const active = filterPiedra === tipo;
+              return (
+                <motion.button key={tipo} whileTap={{ scale: 0.98 }}
+                  onClick={() => { setFilterPiedra(tipo); setOpen(false); }}
+                  style={{
+                    width: '100%', textAlign: 'left',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem',
+                    fontWeight: active ? 600 : 400,
+                    color: active ? '#7c3aed' : COLORS.navy,
+                    background: active ? '#f3f0ff' : 'transparent',
+                    border: 'none', cursor: 'pointer',
+                    borderBottom: i < piedraTypes.length - 1 ? `1px solid ${COLORS.borderLight}` : 'none',
+                  }}
+                >
+                  <span>{tipo}</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>{count}</span>
+                </motion.button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function PackBannerSection({ navigate, storeData }) {
   const hasPacks = (storeData?.products || []).some(p => p.categoryId?.includes('pack'));
   if (!hasPacks) return null;

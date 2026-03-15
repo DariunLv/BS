@@ -1,6 +1,7 @@
 // src/components/AccountingPanel.jsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
+import useImages from '../hooks/useImages';
 import {
   Button, TextInput, Select, Modal, ActionIcon, Badge, Card, Text,
   Textarea, SegmentedControl, Tooltip, Divider, Alert, NumberInput,
@@ -69,6 +70,27 @@ const SEGMENT_STYLES = {
 function localToday() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Parsea un string "YYYY-MM-DD" como hora LOCAL (no UTC).
+ * Sin esto, new Date("2025-06-14") = medianoche UTC = 19:00 Perú del día 13
+ * → siempre muestra un día menos.
+ */
+function parseDateLocal(dateStr) {
+  if (!dateStr) return new Date(NaN);
+  // Si ya tiene hora incluida (ISO completo) parsear normalmente
+  if (dateStr.includes('T') || dateStr.includes(' ')) return new Date(dateStr);
+  // Fecha pura YYYY-MM-DD → forzar hora local 00:00:00
+  return new Date(dateStr + 'T00:00:00');
+}
+
+/**
+ * Formatea un string de fecha a dd/mm/aaaa sin desfase de zona horaria.
+ */
+function formatDateLocal(dateStr, options = { day: '2-digit', month: '2-digit', year: 'numeric' }) {
+  if (!dateStr) return '';
+  return parseDateLocal(dateStr).toLocaleDateString('es-PE', options);
 }
 function getDaysUntil(dateStr) {
   if (!dateStr) return null;
@@ -159,7 +181,7 @@ export default function AccountingPanel({ storeData, onRefresh }) {
     if (filterMonth === 'general') return items;
     return items.filter(item => {
       if (!item[dateField]) return false;
-      const d = new Date(item[dateField]);
+      const d = parseDateLocal(item[dateField]);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === filterMonth;
     });
   };
@@ -170,7 +192,7 @@ export default function AccountingPanel({ storeData, onRefresh }) {
     if (filterSocio !== 'todos') {
       filtered = filtered.filter(s => s.socio === filterSocio || s.socio === 'Ambos');
     }
-    return filtered.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    return filtered.sort((a, b) => parseDateLocal(b.fecha) - parseDateLocal(a.fecha));
   }, [sales, filterSocio, filterMonth]);
 
   // Inversiones filtradas por mes
@@ -208,8 +230,8 @@ export default function AccountingPanel({ storeData, onRefresh }) {
   // Meses disponibles (de ventas + inversiones)
   const availableMonths = useMemo(() => {
     const months = new Set();
-    sales.forEach(s => { if (s.fecha) { const d = new Date(s.fecha); months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); } });
-    investments.forEach(i => { if (i.fecha) { const d = new Date(i.fecha); months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); } });
+    sales.forEach(s => { if (s.fecha) { const d = parseDateLocal(s.fecha); months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); } });
+    investments.forEach(i => { if (i.fecha) { const d = parseDateLocal(i.fecha); months.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); } });
     const names = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
     return Array.from(months).sort().reverse().map(m => {
       const [y, mo] = m.split('-');
@@ -484,7 +506,7 @@ function VentasSection({ sales, filterSocio, setFilterSocio, onAdd, onEdit, onDe
 }
 
 function SaleListItem({ sale, onEdit, onDelete }) {
-  const fechaStr = sale.fecha ? new Date(sale.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+  const fechaStr = formatDateLocal(sale.fecha);
   const socioColor = sale.socio === 'Yefer' ? 'blue' : sale.socio === 'Frank' ? 'orange' : sale.socio === 'Ambos' ? 'grape' : 'gray';
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -80 }}>
@@ -545,8 +567,8 @@ function InversionesSection({ investments, onAdd, onEdit, onDelete }) {
     gastosOp.forEach(inv => { const c = inv.categoria || 'Otros'; map[c] = (map[c] || 0) + (parseFloat(inv.monto) || 0); });
     return map;
   }, [gastosOp]);
-  const sortedGastos = [...gastosOp].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  const sortedCapital = [...capitalItems].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const sortedGastos = [...gastosOp].sort((a, b) => parseDateLocal(b.fecha) - parseDateLocal(a.fecha));
+  const sortedCapital = [...capitalItems].sort((a, b) => parseDateLocal(b.fecha) - parseDateLocal(a.fecha));
   const totalCapitalVal = capitalItems.reduce((s, i) => s + (parseFloat(i.monto) || 0), 0);
 
   return (
@@ -592,7 +614,7 @@ function InversionesSection({ investments, onAdd, onEdit, onDelete }) {
 }
 
 function InvestmentListItem({ investment, onEdit, onDelete, isCapital }) {
-  const fechaStr = investment.fecha ? new Date(investment.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+  const fechaStr = formatDateLocal(investment.fecha);
   const iconMap = { 'Insumos': IconPackage, 'Cajas': IconBox, 'Reabastecer stock': IconPackage, 'Empaques': IconBox, 'Publicidad': IconChartBar, 'Envios': IconTruckDelivery, 'Herramientas': IconTool };
   const Ic = iconMap[investment.categoria] || (isCapital ? IconTool : IconReportMoney);
   const fuente = investment.fuenteDinero || investment.socio || '';
@@ -646,7 +668,7 @@ function PendientesSection({ pendingSales, frecuentClients, onRefresh, onAdd, on
     const da = getDaysUntil(a.fechaEntrega); const db = getDaysUntil(b.fechaEntrega);
     if (da === null) return 1; if (db === null) return -1; return da - db;
   });
-  const completed = pendingSales.filter(p => p.completed).sort((a, b) => new Date(b.completedDate) - new Date(a.completedDate));
+  const completed = pendingSales.filter(p => p.completed).sort((a, b) => parseDateLocal(b.completedDate) - parseDateLocal(a.completedDate));
 
   return (
     <div>
@@ -705,7 +727,7 @@ function PendientesSection({ pendingSales, frecuentClients, onRefresh, onAdd, on
                       <Text size="xs" c="dimmed" lineClamp={1} style={{ fontSize: '0.62rem' }}>{p.producto} - S/.{p.precio || '0'}</Text>
                       <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 2 }}>
                         <Badge size="xs" color={urgency} variant="filled" radius="xl" style={{ fontSize: '0.56rem' }}>{getUrgencyText(days)}</Badge>
-                        {p.fechaEntrega && <Text size="xs" c="dimmed" style={{ fontSize: '0.58rem' }}>{new Date(p.fechaEntrega).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' })}</Text>}
+                        {p.fechaEntrega && <Text size="xs" c="dimmed" style={{ fontSize: '0.58rem' }}>{formatDateLocal(p.fechaEntrega, { day: '2-digit', month: '2-digit' })}</Text>}
                       </div>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -971,14 +993,14 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
       monto: parseFloat(c.valor) || 0,
       categoria: 'Capital / Activo',
     })),
-  ].sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+  ].sort((a, b) => parseDateLocal(b.fecha || '1970-01-01') - parseDateLocal(a.fecha || '1970-01-01'));
 
   // Ganancias mensuales
   const monthlyProfits = useMemo(() => {
     const map = {};
     (sales || []).forEach(s => {
       if (!s.fecha) return;
-      const d = new Date(s.fecha);
+      const d = parseDateLocal(s.fecha);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!map[key]) map[key] = { ventas: 0, gastos: 0, costos: 0 };
       map[key].ventas += parseFloat(s.precio) || 0;
@@ -986,7 +1008,7 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
     });
     (investments || []).forEach(i => {
       if (!i.fecha) return;
-      const d = new Date(i.fecha);
+      const d = parseDateLocal(i.fecha);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!map[key]) map[key] = { ventas: 0, gastos: 0, costos: 0 };
       map[key].gastos += parseFloat(i.monto) || 0;
@@ -1344,6 +1366,25 @@ function AccionistasSection({ sales, investments, capital, pagosAccionista, onRe
 /* ================================================================
    SELECTOR DE PRODUCTO CON IMÁGENES
    ================================================================ */
+/* ── CachedImg ─────────────────────────────────────────────────────────────
+   Muestra la imagen de un producto desde imageCache.
+   Se re-renderiza automáticamente cuando llega la foto desde Firebase.
+   size: tamaño en px del cuadrado (default 44).
+   ──────────────────────────────────────────────────────────────────────── */
+function CachedImg({ productId, fallbackImages, size = 44, radius = 8, style = {} }) {
+  const cached = useImages(productId);
+  const src = (cached?.length ? cached[0] : null) || fallbackImages?.[0] || null;
+  const box = { width: size, height: size, borderRadius: radius, flexShrink: 0, overflow: 'hidden', ...style };
+  if (src) {
+    return <img src={src} alt="" style={{ ...box, objectFit: 'cover', display: 'block' }} loading="lazy" />;
+  }
+  return (
+    <div style={{ ...box, background: COLORS.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <IconPhoto size={Math.round(size * 0.36)} color={COLORS.textMuted} />
+    </div>
+  );
+}
+
 function ProductImageSelect({ products, value, onChange }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -1353,6 +1394,14 @@ function ProductImageSelect({ products, value, onChange }) {
   const filtered = products.filter(p =>
     p.title?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Pre-cargar imágenes al abrir el dropdown
+  useEffect(() => {
+    if (!open || !products.length) return;
+    import('../utils/imageCache').then(({ preloadImagesInBatches }) => {
+      preloadImagesInBatches(products.map(p => p.id), 8);
+    });
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cerrar al hacer click fuera
   useEffect(() => {
@@ -1395,11 +1444,7 @@ function ProductImageSelect({ products, value, onChange }) {
         <IconDiamond size={16} color={COLORS.textMuted} style={{ flexShrink: 0 }} />
         {selected ? (
           <>
-            {selected.images?.[0] ? (
-              <img src={selected.images[0]} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-            ) : (
-              <div style={{ width: 28, height: 28, borderRadius: 6, background: COLORS.borderLight, flexShrink: 0 }} />
-            )}
+            <CachedImg productId={selected.id} fallbackImages={selected.images} size={28} radius={6} />
             <span style={{ flex: 1, fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', color: COLORS.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {selected.title} <span style={{ color: COLORS.orange, fontWeight: 700 }}>S/.{selected.price || '0'}</span>
             </span>
@@ -1455,13 +1500,7 @@ function ProductImageSelect({ products, value, onChange }) {
                 onMouseLeave={(e) => { if (prod.id !== value) e.currentTarget.style.background = 'white'; }}
               >
                 {/* Thumbnail */}
-                {prod.images?.[0] ? (
-                  <img src={prod.images[0]} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                ) : (
-                  <div style={{ width: 44, height: 44, borderRadius: 8, background: COLORS.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <IconPhoto size={16} color={COLORS.textMuted} />
-                  </div>
-                )}
+                <CachedImg productId={prod.id} fallbackImages={prod.images} size={44} radius={8} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.82rem', fontWeight: 600, color: COLORS.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {prod.title}
@@ -1528,7 +1567,11 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
   const handleProductSelect = (productId) => {
     const prod = products.find(p => p.id === productId);
     if (prod) {
-      setForm(p => ({ ...p, productId, producto: prod.title || '', precio: prod.price || '', foto: prod.images?.[0] || '' }));
+      import('../utils/imageCache').then(({ getImages }) => {
+        const imgs = getImages(prod.id);
+        const foto = (imgs?.length ? imgs[0] : null) || prod.images?.[0] || '';
+        setForm(p => ({ ...p, productId, producto: prod.title || '', precio: prod.price || '', foto }));
+      });
     } else {
       setForm(p => ({ ...p, productId: '', producto: '', precio: '', foto: '' }));
     }
@@ -2028,7 +2071,11 @@ function PendingSaleFormModal({ open, pending, categories, products, onClose, on
   const handleProductSelect = (productId) => {
     const prod = products.find(p => p.id === productId);
     if (prod) {
-      setForm(p => ({ ...p, productId, producto: prod.title || '', precio: prod.price || '', foto: prod.images?.[0] || '' }));
+      import('../utils/imageCache').then(({ getImages }) => {
+        const imgs = getImages(prod.id);
+        const foto = (imgs?.length ? imgs[0] : null) || prod.images?.[0] || '';
+        setForm(p => ({ ...p, productId, producto: prod.title || '', precio: prod.price || '', foto }));
+      });
     } else {
       setForm(p => ({ ...p, productId: '', producto: '', precio: '', foto: '' }));
     }

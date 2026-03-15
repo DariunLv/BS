@@ -1,5 +1,5 @@
 // src/pages/SecondStorePage.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { IconShoppingBag, IconArrowLeft } from '@tabler/icons-react';
 import CategoryCard from '../components/CategoryCard';
@@ -22,15 +22,35 @@ export default function SecondStorePage({ storeData, onNavigateCategory, onBack 
     return (storeData?.products || []).filter(p => catIds.includes(p.categoryId) && !p.hidden);
   }, [storeData, generalCategories]);
 
-  const galleryImages = useMemo(() =>
-    allGeneralProducts
-      .flatMap(p => (p.images || []).map(img => ({ image: img, text: p.title })))
-      .slice(0, 24),
-    [allGeneralProducts]
-  );
+  const [galRev, setGalRev] = React.useState(0);
+  React.useEffect(() => {
+    let unsub;
+    import('../utils/imageCache').then(({ subscribeToImages }) => {
+      unsub = subscribeToImages(() => setGalRev(r => r + 1));
+    });
+    return () => { if (unsub) unsub(); };
+  }, []);
+
+  const galleryImages = useMemo(() => {
+    let result = [];
+    allGeneralProducts.forEach(p => {
+      const cached = window.__imgCache?.get(p.id);
+      const imgs = (cached?.length ? cached : p.images) || [];
+      imgs.forEach(img => result.push({ image: img, text: p.title }));
+    });
+    return result.slice(0, 24);
+  }, [allGeneralProducts, galRev]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const deliveryLocations = storeData?.deliveryLocations || [];
   const shalomImage = storeData?.shalomImage || '';
+
+  // Pre-cargar imágenes de todos los productos generales al entrar
+  useEffect(() => {
+    if (!allGeneralProducts.length) return;
+    import('../utils/imageCache').then(({ preloadImagesInBatches }) => {
+      preloadImagesInBatches(allGeneralProducts.map(p => p.id), 6);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="main-content">

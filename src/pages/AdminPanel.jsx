@@ -1,5 +1,6 @@
 // src/pages/AdminPanel.jsx
 import React, { useState, useCallback, useMemo } from 'react';
+import useImages from '../hooks/useImages';
 import {
   Button, TextInput, Textarea, Select, Switch, Tabs, Modal, FileInput,
   ActionIcon, Badge, Card, Text, Group, NumberInput, SegmentedControl,
@@ -483,6 +484,10 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
   const views = getProductViews()[product.id] || 0;
   const priceHistory = getPriceHistory(product.id);
 
+  // Imagen desde imageCache — se re-renderiza cuando llega
+  const cachedImages = useImages(product.id);
+  const thumb = (cachedImages?.length ? cachedImages[0] : null) || product.images?.[0] || null;
+
   // Cargar inventario de este producto
   React.useEffect(() => {
     import('../utils/inventory').then(m => {
@@ -526,17 +531,13 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
       <Card padding="sm" radius="md" style={{ border: `1px solid ${product.hidden ? '#d0d4da' : COLORS.borderLight}`, background: product.hidden ? '#f8f9fa' : COLORS.white, opacity: product.hidden ? 0.72 : 1 }}>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ width: 60, height: 60, borderRadius: 10, overflow: 'hidden', background: COLORS.offWhite, flexShrink: 0, aspectRatio: '1/1' }}>
-            {(() => {
-              // Usar imágenes del caché si ya están cargadas, si no, las del producto
-              const thumb = product.images?.[0];
-              return thumb ? (
-                <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-              ) : (
-                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <IconPhoto size={20} color={COLORS.borderLight} />
-                </div>
-              );
-            })()}
+            {thumb ? (
+              <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconPhoto size={20} color={COLORS.borderLight} />
+              </div>
+            )}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -780,21 +781,26 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
     if (product) {
       const legacyTallas = product.tallas || [];
       const hasSplit = (product.tallasVaron?.length > 0) || (product.tallasDama?.length > 0);
-      setForm({
-        title: product.title || '', description: product.description || '',
-        material: product.material || '', plating: product.plating || '',
-        platingType: product.platingType || '',
-        tipoPiedra: product.tipoPiedra || '',
-        acabado: product.acabado || '',
-        colorPiedra: product.colorPiedra || '',
-        price: product.price || '', categoryId: product.categoryId || '',
-        images: product.images || [], soldOut: product.soldOut || false, isNew: product.isNew || false,
-        tallasVaron: hasSplit ? (product.tallasVaron || []) : legacyTallas,
-        tallasDama: product.tallasDama || [],
-        contenidos: product.contenidos || [],
-        modelosPrecio: product.modelosPrecio || [],
-        showWhatsapp: product.showWhatsapp || false,
-        code: product.code || '',
+      // Obtener imágenes del imageCache (fuente de verdad); si no están aún, usar las del store
+      import('../utils/imageCache').then(({ getImages }) => {
+        const cachedImgs = getImages(product.id);
+        const imgs = (cachedImgs?.length ? cachedImgs : product.images) || [];
+        setForm({
+          title: product.title || '', description: product.description || '',
+          material: product.material || '', plating: product.plating || '',
+          platingType: product.platingType || '',
+          tipoPiedra: product.tipoPiedra || '',
+          acabado: product.acabado || '',
+          colorPiedra: product.colorPiedra || '',
+          price: product.price || '', categoryId: product.categoryId || '',
+          images: imgs, soldOut: product.soldOut || false, isNew: product.isNew || false,
+          tallasVaron: hasSplit ? (product.tallasVaron || []) : legacyTallas,
+          tallasDama: product.tallasDama || [],
+          contenidos: product.contenidos || [],
+          modelosPrecio: product.modelosPrecio || [],
+          showWhatsapp: product.showWhatsapp || false,
+          code: product.code || '',
+        });
       });
       setStep(2); // editando: ir directo al formulario
     } else {
