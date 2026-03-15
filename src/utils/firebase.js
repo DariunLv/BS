@@ -66,29 +66,20 @@ export async function loadFromFirebase() {
 
     if (!meta) return null;
 
-    // 2. Leer productos de la coleccion separada
-    const prodSnap = await getDocs(PROD_COL);
-    const products = [];
-    prodSnap.forEach(d => products.push(d.data()));
-
-    // 3. Leer imágenes separadas
-    const imgSnap = await getDocs(IMG_COL);
-    const imagesMap = {};
-    imgSnap.forEach(d => { imagesMap[d.id] = d.data().images || []; });
-
-    // Combinar productos con imágenes
-    const productsWithImages = products.map(p => ({
-      ...p,
-      images: imagesMap[p.id] || [],
-    }));
-
-    // Leer colecciones separadas en paralelo
-    const [cliPhotoSnap, salesSnap, investSnap, pendingSnap] = await Promise.all([
+    // 2. Leer productos + colecciones en paralelo (SIN imágenes — se cargan lazy por categoría)
+    const [prodSnap, cliPhotoSnap, salesSnap, investSnap, pendingSnap] = await Promise.all([
+      getDocs(PROD_COL),
       getDocs(CLI_PHOTOS_COL),
       getDocs(SALES_COL),
       getDocs(INVEST_COL),
       getDocs(PENDING_COL),
     ]);
+
+    const products = [];
+    prodSnap.forEach(d => products.push(d.data()));
+
+    // Las imágenes NO se cargan aquí: cada página las pide solo para sus productos
+    const productsWithImages = products.map(p => ({ ...p, images: p.images || [] }));
 
     // Fotos de clientes
     const clientPhotosMap = {};
@@ -239,6 +230,27 @@ export async function saveProductImagesToFirebase(productId, images) {
     } else {
       console.error('Error guardando imágenes:', e);
     }
+  }
+}
+
+/**
+ * Carga imágenes SOLO para los productos indicados (lazy loading por categoría).
+ * Devuelve un mapa { productId: string[] }
+ */
+export async function loadCategoryImages(productIds) {
+  if (!productIds || productIds.length === 0) return {};
+  try {
+    const snaps = await Promise.all(
+      productIds.map(id => getDoc(doc(db, 'productImages', id)))
+    );
+    const map = {};
+    snaps.forEach((snap, i) => {
+      if (snap.exists()) map[productIds[i]] = snap.data().images || [];
+    });
+    return map;
+  } catch (e) {
+    console.error('Error cargando imágenes de categoría:', e);
+    return {};
   }
 }
 

@@ -1,5 +1,5 @@
 // src/pages/SecondStoreCategoryPage.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { IconShoppingBag } from '@tabler/icons-react';
@@ -18,6 +18,21 @@ export default function SecondStoreCategoryPage({ storeData, onBack }) {
     (storeData?.products || []).filter(p => p.categoryId === categoryId && !p.hidden),
     [storeData, categoryId]
   );
+
+  // Lazy-load imágenes solo para los productos de esta categoría
+  useEffect(() => {
+    if (!products.length) return;
+    const sinImagenes = products.filter(p => !p.images?.length);
+    if (!sinImagenes.length) return;
+    Promise.all([
+      import('../utils/firebase').then(m => m.loadCategoryImages),
+      import('../utils/store').then(m => m.mergeProductImages),
+    ]).then(([loadCategoryImages, mergeProductImages]) => {
+      loadCategoryImages(sinImagenes.map(p => p.id)).then(map => {
+        if (Object.keys(map).length) mergeProductImages(map);
+      });
+    });
+  }, [categoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!category) {
     return (

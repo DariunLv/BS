@@ -569,6 +569,27 @@ export function deletePagoAccionista(id) {
   return data;
 }
 
+/**
+ * Inyecta imágenes en los productos del caché sin disparar un guardado en Firebase.
+ * Se usa después de un loadCategoryImages() para actualizar la UI con las fotos.
+ */
+export function mergeProductImages(imagesMap) {
+  if (!cacheData || !imagesMap) return;
+  let changed = false;
+  Object.entries(imagesMap).forEach(([id, images]) => {
+    const idx = cacheData.products.findIndex(p => p.id === id);
+    if (idx !== -1 && images.length > 0) {
+      cacheData.products[idx] = { ...cacheData.products[idx], images };
+      changed = true;
+    }
+  });
+  if (changed) {
+    // Notificar a React sin guardar en Firebase (las imágenes ya están ahí)
+    const snap = loadStore();
+    _subscribers.forEach(cb => cb(snap));
+  }
+}
+
 /* ====== AUTH & UTILS ====== */
 export function verifyPassword(pw) {
   const data = loadStore();

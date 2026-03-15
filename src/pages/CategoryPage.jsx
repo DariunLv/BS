@@ -1,4 +1,3 @@
-// src/pages/CategoryPage.jsx
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,6 +40,21 @@ export default function CategoryPage({ storeData, isLoading }) {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Lazy-load imágenes solo para los productos de esta categoría
+  useEffect(() => {
+    if (!products.length) return;
+    const sinImagenes = products.filter(p => !p.images?.length);
+    if (!sinImagenes.length) return;
+    Promise.all([
+      import('../utils/firebase').then(m => m.loadCategoryImages),
+      import('../utils/store').then(m => m.mergeProductImages),
+    ]).then(([loadCategoryImages, mergeProductImages]) => {
+      loadCategoryImages(sinImagenes.map(p => p.id)).then(map => {
+        if (Object.keys(map).length) mergeProductImages(map);
+      });
+    });
+  }, [categoryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isPack = categoryId?.includes('pack');
   const isAnillos = categoryId?.includes('anillo');

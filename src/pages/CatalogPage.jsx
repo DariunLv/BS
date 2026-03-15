@@ -1,5 +1,5 @@
 // src/pages/CatalogPage.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { IconSparkles, IconHeart, IconStars, IconArrowRight } from '@tabler/icons-react';
 import RotatingText from '../components/RotatingText';
@@ -49,6 +49,20 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
 
   const deliveryLocations = storeData?.deliveryLocations || [];
   const shalomImage = storeData?.shalomImage || '';
+
+  // Lazy-load imágenes de productos en ofertas (para mostrar en el catálogo principal)
+  useEffect(() => {
+    const sinImagenes = offerProducts.filter(p => !p.images?.length);
+    if (!sinImagenes.length) return;
+    Promise.all([
+      import('../utils/firebase').then(m => m.loadCategoryImages),
+      import('../utils/store').then(m => m.mergeProductImages),
+    ]).then(([loadCategoryImages, mergeProductImages]) => {
+      loadCategoryImages(sinImagenes.map(p => p.id)).then(map => {
+        if (Object.keys(map).length) mergeProductImages(map);
+      });
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="main-content" style={{ position: 'relative', zIndex: 1 }}>
