@@ -990,3 +990,26 @@ function PackBannerSection({ navigate, storeData }) {
     </motion.section>
   );
 }
+
+/* ====== Formas decorativas (copias locales) ====== */
+function SquaresGrid({ color='#000', rows=4, cols=5, gap=7, size=3.5, style={} }) {
+  const items = [];
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) items.push(<div key={`${r}-${c}`} style={{ width:size,height:size,borderRadius:1,background:color }} />);
+  return <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},${size}px)`, gap:`${gap}px`, ...style }}>{items}</div>;
+}
+function CrossGrid({ color='#000', rows=3, cols=4, gap=12, size=8, style={} }) {
+  const items = [];
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) items.push(
+    <svg key={`${r}-${c}`} width={size} height={size} viewBox="0 0 10 10" style={{display:'block'}}>
+      <rect x="4" y="0" width="2" height="10" fill={color} rx="0.5"/><rect x="0" y="4" width="10" height="2" fill={color} rx="0.5"/>
+    </svg>);
+  return <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},${size}px)`, gap:`${gap}px`, ...style }}>{items}</div>;
+}
+function DiamondGrid({ color='#000', rows=3, cols=4, gap=10, size=7, style={} }) {
+  const items = [];
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) items.push(
+    <svg key={`${r}-${c}`} width={size} height={size} viewBox="0 0 10 10" style={{display:'block'}}>
+      <polygon points="5,0 10,5 5,10 0,5" fill={color}/>
+    </svg>);
+  return <div style={{ display:'grid', gridTemplateColumns:`repeat(${cols},${size}px)`, gap:`${gap}px`, ...style }}>{items}</div>;
+}

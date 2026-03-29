@@ -37,16 +37,23 @@ function useDebounce(fn, delay) {
   }, []); // eslint-disable-line
 }
 
-export default function InventoryPanel({ storeData }) {
+export default function InventoryPanel({ storeData, refreshTrigger }) {
   const [inventory,     setInventory]     = useState({});
   const [loading,       setLoading]       = useState(true);
   const [saving,        setSaving]        = useState({});
   const [expandedCats,  setExpandedCats]  = useState({});
   const [expandedRows,  setExpandedRows]  = useState({});
 
+  // Recargar inventario cuando cambian los productos o se pide refresh explícito
+  const productIds = useMemo(() =>
+    (storeData?.products || []).map(p => p.id).join(','),
+    [storeData]
+  );
+
   useEffect(() => {
+    setLoading(true);
     loadAllInventory().then(data => { setInventory(data); setLoading(false); });
-  }, []);
+  }, [refreshTrigger, productIds]);
 
   const allProducts = useMemo(() =>
     (storeData?.products || []).filter(p => !p.hidden), [storeData]);
@@ -109,6 +116,20 @@ export default function InventoryPanel({ storeData }) {
           </div>
         ))}
       </div>
+
+      {/* Botón de actualizar manual */}
+      <button
+        onClick={() => { setLoading(true); loadAllInventory().then(data => { setInventory(data); setLoading(false); }); }}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14,
+          background: 'none', border: `1px solid ${COLORS.borderLight}`, borderRadius: 10,
+          padding: '6px 14px', cursor: 'pointer', color: COLORS.navy,
+          fontFamily: '"Outfit",sans-serif', fontSize: '0.72rem', fontWeight: 600,
+        }}
+      >
+        <IconRefresh size={14} color={COLORS.orange} />
+        Actualizar inventario
+      </button>
 
       {/* Categorías */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

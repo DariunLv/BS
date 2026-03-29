@@ -36,6 +36,11 @@ const DEFAULT_DATA = {
   capital: [],
   frecuentClients: [],
   pagosAccionista: [],
+  agregados: [],
+  ringBoxes: {
+    cheap:   { title: 'Caja de anillo', photo: '', label: 'Incluida' },
+    premium: { title: 'Caja Premium',   photo: '', label: 'Incluida' },
+  },
 };
 
 let cacheData = null;
@@ -96,6 +101,11 @@ export function setCacheData(data) {
   if (!data.frecuentClients) data.frecuentClients = [];
   if (!data.pagosAccionista) data.pagosAccionista = [];
   if (!data.whatsappNumber) data.whatsappNumber = '51970824366';
+  if (!data.agregados) data.agregados = [];
+  if (!data.ringBoxes) data.ringBoxes = {
+    cheap:   { title: 'Caja de anillo', photo: '', label: 'Incluida' },
+    premium: { title: 'Caja Premium',   photo: '', label: 'Incluida' },
+  };
 
   // Asegurar que todas las categorías por defecto existen (merge sin duplicar)
   const existingIds = (data.categories || []).map(c => c.id);
@@ -297,6 +307,7 @@ export function deleteProduct(id) {
   const data = loadStore();
   data.products = data.products.filter(p => p.id !== id);
   cacheData = data;
+  _notify();
   deleteProductFromFirebase(id);
   return data;
 }
@@ -307,6 +318,7 @@ export function toggleSoldOut(id) {
   if (idx !== -1) {
     data.products[idx].soldOut = !data.products[idx].soldOut;
     cacheData = data;
+    _notify();
     const { images, ...productMeta } = data.products[idx];
     saveProductToFirebase(productMeta);
   }
@@ -319,6 +331,7 @@ export function toggleHidden(id) {
   if (idx !== -1) {
     data.products[idx].hidden = !data.products[idx].hidden;
     cacheData = data;
+    _notify();
     const { images, ...productMeta } = data.products[idx];
     saveProductToFirebase(productMeta);
   }
@@ -585,6 +598,69 @@ export function deletePagoAccionista(id) {
  */
 export function mergeProductImages(imagesMap, checkedIds = []) {
   // No-op intencional. Las imágenes viven en imageCache.js fuera del state de React.
+}
+
+/* ====== AGREGADOS ====== */
+export function getAgregados() {
+  const data = loadStore();
+  return (data.agregados || []).sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+}
+
+export function addAgregado(ag) {
+  const data = loadStore();
+  if (!data.agregados) data.agregados = [];
+  const maxOrder = data.agregados.reduce((m, a) => Math.max(m, a.order ?? 0), -1);
+  ag.order = maxOrder + 1;
+  data.agregados.push(ag);
+  saveStore(data);
+  return data;
+}
+
+export function updateAgregado(id, updates) {
+  const data = loadStore();
+  if (!data.agregados) data.agregados = [];
+  const idx = data.agregados.findIndex(a => a.id === id);
+  if (idx !== -1) {
+    data.agregados[idx] = { ...data.agregados[idx], ...updates };
+    saveStore(data);
+  }
+  return data;
+}
+
+export function deleteAgregado(id) {
+  const data = loadStore();
+  if (!data.agregados) data.agregados = [];
+  data.agregados = data.agregados.filter(a => a.id !== id);
+  saveStore(data);
+  return data;
+}
+
+export function reorderAgregados(fromIdx, toIdx) {
+  const data = loadStore();
+  if (!data.agregados) data.agregados = [];
+  const sorted = [...data.agregados].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+  const [moved] = sorted.splice(fromIdx, 1);
+  sorted.splice(toIdx, 0, moved);
+  sorted.forEach((a, i) => { a.order = i; });
+  data.agregados = sorted;
+  saveStore(data);
+  return data;
+}
+
+/* ====== RING BOXES ====== */
+export function getRingBoxes() {
+  const data = loadStore();
+  return data.ringBoxes || {
+    cheap:   { title: 'Caja de anillo', photo: '', label: 'Incluida' },
+    premium: { title: 'Caja Premium',   photo: '', label: 'Incluida' },
+  };
+}
+
+export function updateRingBoxes(ringBoxes) {
+  const data = loadStore();
+  data.ringBoxes = ringBoxes;
+  saveStore(data);
+  return data;
 }
 
 /* ====== AUTH & UTILS ====== */

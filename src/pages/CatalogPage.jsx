@@ -89,6 +89,61 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
           backgroundSize: '24px 24px', pointerEvents: 'none',
         }} />
 
+        {/* ── Adornos flotantes hero ── */}
+        {/* Cuadrícula de cuadraditos — esquina superior izquierda, flotan suavemente */}
+        <motion.div
+          animate={{ y: [0, -8, 0], rotate: [0, 3, 0] }}
+          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ position: 'absolute', top: 22, left: 12, pointerEvents: 'none', zIndex: 0 }}
+        >
+          <FloatSquares color={COLORS.navy} opacity={0.22} />
+        </motion.div>
+
+        {/* Cuadrícula de cuadraditos — esquina superior derecha */}
+        <motion.div
+          animate={{ y: [0, -6, 0], rotate: [0, -2, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+          style={{ position: 'absolute', top: 18, right: 12, pointerEvents: 'none', zIndex: 0 }}
+        >
+          <FloatSquares color={COLORS.orange} opacity={0.28} />
+        </motion.div>
+
+        {/* Diamantes — lado izquierdo medio, flotan con rotación */}
+        <motion.div
+          animate={{ y: [0, -10, 0], rotate: [0, 15, 0] }}
+          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+          style={{ position: 'absolute', top: '38%', left: 8, pointerEvents: 'none', zIndex: 0 }}
+        >
+          <FloatDiamonds color={COLORS.navy} opacity={0.2} />
+        </motion.div>
+
+        {/* Diamantes — lado derecho medio */}
+        <motion.div
+          animate={{ y: [0, -7, 0], rotate: [0, -10, 0] }}
+          transition={{ duration: 6.5, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+          style={{ position: 'absolute', top: '42%', right: 8, pointerEvents: 'none', zIndex: 0 }}
+        >
+          <FloatDiamonds color={COLORS.orange} opacity={0.22} />
+        </motion.div>
+
+        {/* Cruces — esquina inferior izquierda */}
+        <motion.div
+          animate={{ y: [0, -9, 0], scale: [1, 1.06, 1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 1.5 }}
+          style={{ position: 'absolute', bottom: 24, left: 14, pointerEvents: 'none', zIndex: 0 }}
+        >
+          <FloatCrosses color={COLORS.navy} opacity={0.18} />
+        </motion.div>
+
+        {/* Cruces — esquina inferior derecha */}
+        <motion.div
+          animate={{ y: [0, -11, 0], scale: [1, 1.08, 1] }}
+          transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut', delay: 0.8 }}
+          style={{ position: 'absolute', bottom: 20, right: 14, pointerEvents: 'none', zIndex: 0 }}
+        >
+          <FloatCrosses color={COLORS.orange} opacity={0.2} />
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
@@ -523,6 +578,52 @@ export default function CatalogPage({ storeData, isLoading, onNavigateCategory, 
           </div>
         </motion.div>
       </footer>
+    </div>
+  );
+}
+
+/* ── Componentes de adornos flotantes para el catálogo ── */
+function FloatSquares({ color = '#000', opacity = 0.3, rows = 4, cols = 5, gap = 7, size = 3.5 }) {
+  const items = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      items.push(<div key={`${r}-${c}`} style={{ width: size, height: size, borderRadius: 1, background: color }} />);
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${size}px)`, gap: `${gap}px`, opacity }}>
+      {items}
+    </div>
+  );
+}
+
+function FloatDiamonds({ color = '#000', opacity = 0.3, rows = 3, cols = 3, gap = 8, size = 7 }) {
+  const items = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      items.push(
+        <svg key={`${r}-${c}`} width={size} height={size} viewBox="0 0 10 10" style={{ display: 'block' }}>
+          <polygon points="5,0 10,5 5,10 0,5" fill={color} />
+        </svg>
+      );
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${size}px)`, gap: `${gap}px`, opacity }}>
+      {items}
+    </div>
+  );
+}
+
+function FloatCrosses({ color = '#000', opacity = 0.3, rows = 2, cols = 3, gap = 10, size = 8 }) {
+  const items = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      items.push(
+        <svg key={`${r}-${c}`} width={size} height={size} viewBox="0 0 10 10" style={{ display: 'block' }}>
+          <rect x="4" y="0" width="2" height="10" fill={color} rx="0.5" />
+          <rect x="0" y="4" width="10" height="2" fill={color} rx="0.5" />
+        </svg>
+      );
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${size}px)`, gap: `${gap}px`, opacity }}>
+      {items}
     </div>
   );
 }

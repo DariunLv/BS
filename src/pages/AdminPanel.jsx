@@ -10,7 +10,7 @@ import {
   IconPlus, IconTrash, IconEdit, IconEye, IconEyeOff, IconHistory, IconPhoto, IconLogout, IconCategory,
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
-  IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort, IconBox, IconRefresh,
+  IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort, IconBox, IconRefresh, IconGift,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -21,6 +21,8 @@ import {
   generateId, uploadImage, changePassword, loadStore, saveStore,
   reorderProducts, reorderCategories,
   getProductViews, getPriceHistory,
+  getAgregados, addAgregado, updateAgregado, deleteAgregado, reorderAgregados,
+  getRingBoxes, updateRingBoxes,
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
 import AccountingPanel from '../components/AccountingPanel';
@@ -43,6 +45,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
   const [activeTab, setActiveTab] = useState('products');
   const [storeType, setStoreType] = useState('jewelry');
   const [productModal, setProductModal] = useState({ open: false, product: null });
+  const [invRefreshKey, setInvRefreshKey] = React.useState(0);
   const [categoryModal, setCategoryModal] = useState({ open: false, category: null });
   const [passwordModal, setPasswordModal] = useState(false);
   const [locationModal, setLocationModal] = useState({ open: false, location: null });
@@ -130,6 +133,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           <Tabs.Tab value="products" leftSection={<IconDiamond size={14} />} style={{ fontSize: '0.75rem' }}>Productos</Tabs.Tab>
           <Tabs.Tab value="categories" leftSection={<IconCategory size={14} />} style={{ fontSize: '0.75rem' }}>Categorías</Tabs.Tab>
           <Tabs.Tab value="inventory" leftSection={<IconBox size={14} />} style={{ fontSize: '0.75rem' }}>Inventario</Tabs.Tab>
+          <Tabs.Tab value="extras" leftSection={<IconGift size={14} />} style={{ fontSize: '0.75rem' }}>Extras</Tabs.Tab>
           <Tabs.Tab value="delivery" leftSection={<IconMapPin size={14} />} style={{ fontSize: '0.75rem' }}>Entregas</Tabs.Tab>
           <Tabs.Tab value="accounting" leftSection={<IconReportMoney size={14} />} style={{ fontSize: '0.75rem' }}>Cuentas</Tabs.Tab>
         </Tabs.List>
@@ -219,7 +223,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
                       {/* Card del producto */}
                       <div style={{ flex: 1 }}>
-                        <ProductListItem product={product} categories={categories}
+                        <ProductListItem product={product} categories={categories} invRefreshKey={invRefreshKey}
                           onEdit={() => setProductModal({ open: true, product })}
                           onDelete={() => { deleteProduct(product.id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Producto eliminado', color: 'red' }); }}
                           onToggleSoldOut={() => {
@@ -361,7 +365,11 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           <Text size="xs" c="dimmed" mb="md" style={{ fontFamily: '"Outfit", sans-serif' }}>
             Registra el stock de cada producto. Para anillos, expande para ver tallas por género.
           </Text>
-          <InventoryPanel storeData={storeData} />
+          <InventoryPanel storeData={storeData} refreshTrigger={invRefreshKey} />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="extras" pt="md">
+          <ExtrasPanel storeData={storeData} onRefresh={onRefresh} />
         </Tabs.Panel>
 
         <Tabs.Panel value="delivery" pt="md">
@@ -462,7 +470,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
         categories={categories} storeType={storeType}
         allProducts={storeData?.products || []}
         onClose={() => setProductModal({ open: false, product: null })}
-        onSave={() => { onRefresh(); setProductModal({ open: false, product: null }); }} />
+        onSave={() => { onRefresh(); setInvRefreshKey(k => k + 1); setProductModal({ open: false, product: null }); }} />
       <CategoryFormModal open={categoryModal.open} category={categoryModal.category}
         storeType={storeType}
         onClose={() => setCategoryModal({ open: false, category: null })}
@@ -477,7 +485,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
 
 /* ========= SUB-COMPONENTS ========= */
 
-function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOut, onToggleHidden }) {
+function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOut, onToggleHidden, invRefreshKey }) {
   const cat = categories.find(c => c.id === product.categoryId);
   const [showHistory, setShowHistory] = useState(false);
   const [inv, setInv] = React.useState(null);
@@ -493,7 +501,7 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
     import('../utils/inventory').then(m => {
       m.getProductInventory(product.id).then(data => setInv(data));
     });
-  }, [product.id, product.soldOut]);
+  }, [product.id, product.soldOut, invRefreshKey]);
 
   // Calcular resumen de stock
   const stockSummary = React.useMemo(() => {
@@ -844,6 +852,26 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
   };
   const removeModeloPrecio = (idx) => setForm(p => ({ ...p, modelosPrecio: p.modelosPrecio.filter((_, i) => i !== idx) }));
 
+  // Inventario actual al editar (cargado desde Firebase)
+  const [currentInv, setCurrentInv] = React.useState(null);
+  // Stock editable: valores exactos que el admin puede modificar
+  const [stockEdit, setStockEdit] = React.useState({}); // { 'V-6': 3, 'D-5': 1 }
+
+  // Cargar inventario real cuando se abre modal de edición
+  React.useEffect(() => {
+    if (product && open) {
+      import('../utils/inventory').then(({ getProductInventory }) => {
+        getProductInventory(product.id).then(inv => {
+          setCurrentInv(inv);
+          setStockEdit(inv?.sizeStock ? { ...inv.sizeStock } : {});
+        });
+      });
+    } else {
+      setCurrentInv(null);
+      setStockEdit({});
+    }
+  }, [product?.id, open]);
+
   const isPack = form.categoryId?.includes('pack');
   const isAnillos = form.categoryId?.includes('anillo');
 
@@ -852,17 +880,18 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
     if (!form.categoryId) { notifications.show({ title: 'Error', message: 'Selecciona una categoría', color: 'red' }); return; }
     if (product) {
       updateProduct(product.id, form);
-      // Si cambiaron tallas, reconstruir sizeStock preservando stocks existentes
+      // Guardar inventario con los valores editados directamente
       if (isAnillos && (form.tallasVaron.length > 0 || form.tallasDama.length > 0)) {
-        const tempProduct = { ...product, ...form };
-        const baseInv = buildEmptyInventory(tempProduct);
-        const oldStock = product._invSnapshot || {};
-        // Mezclar: preservar stock de tallas que siguen existiendo
-        Object.keys(baseInv.sizeStock || {}).forEach(k => {
-          if (oldStock[k] !== undefined) baseInv.sizeStock[k] = oldStock[k];
+        import('../utils/inventory').then(({ saveProductInventory: saveProdInv, buildEmptyInventory: buildEmpty }) => {
+          const tempProduct = { ...product, ...form };
+          const baseInv = buildEmpty(tempProduct);
+          // Usar stockEdit como fuente de verdad (valores que el admin puso)
+          Object.keys(baseInv.sizeStock || {}).forEach(k => {
+            baseInv.sizeStock[k] = parseInt(stockEdit[k]) >= 0 ? parseInt(stockEdit[k]) : 0;
+          });
+          if (form.code) baseInv.code = form.code;
+          saveProdInv(product.id, baseInv);
         });
-        if (form.code) baseInv.code = form.code;
-        saveProductInventory(product.id, baseInv);
       }
       notifications.show({ title: 'Actualizado', message: 'Producto actualizado', color: 'green' });
     } else {
@@ -1094,6 +1123,90 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                             rightSection={<ActionIcon size="xs" variant="transparent" style={{ color: 'rgba(255,255,255,0.8)' }} onClick={() => removeTallaDama(i)}><IconX size={9} /></ActionIcon>}>{t}</Badge>
                         ))}
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ===== STOCK POR TALLA (solo cuando se edita) — muestra valores reales y permite editar ===== */}
+              {product && isAnillos && (form.tallasVaron.length > 0 || form.tallasDama.length > 0) && (
+                <div style={{ border: `1.5px solid #2c4a8033`, borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px', background: 'linear-gradient(90deg, #f0f4ff, #fff)', borderBottom: `1px solid #2c4a8018` }}>
+                    <Text size="sm" fw={700} style={{ fontFamily: '"Outfit",sans-serif', color: '#1a2e5c' }}>
+                      Stock por talla
+                    </Text>
+                    <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit",sans-serif', marginTop: 2 }}>
+                      {currentInv ? 'Valores actuales — edítalos directamente y guarda' : 'Cargando inventario...'}
+                    </Text>
+                  </div>
+                  <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {form.tallasVaron.length > 0 && (
+                      <div>
+                        <Text size="xs" fw={700} mb={8} style={{ color: '#2c4a80', fontFamily: '"Outfit",sans-serif', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Varón</Text>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {[...form.tallasVaron].sort((a,b) => parseFloat(a)-parseFloat(b) || String(a).localeCompare(String(b))).map(t => {
+                            const key = `V-${t}`;
+                            const val = stockEdit[key];
+                            const qty = val !== undefined ? parseInt(val) : 0;
+                            const isOut = qty === 0;
+                            const isLow = qty > 0 && qty <= 2;
+                            return (
+                              <div key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.68rem', fontWeight: 700, color: '#2c4a80' }}>T. {t}</span>
+                                <input
+                                  type="number" min="0"
+                                  value={val !== undefined ? val : 0}
+                                  onChange={e => setStockEdit(p => ({ ...p, [key]: e.target.value }))}
+                                  style={{
+                                    width: 56, padding: '6px 4px', borderRadius: 8, textAlign: 'center',
+                                    fontFamily: '"Outfit",sans-serif', fontSize: '0.85rem', fontWeight: 700, outline: 'none',
+                                    color: isOut ? '#e11d48' : isLow ? '#d97706' : '#1a5c1a',
+                                    background: isOut ? '#fff0f2' : isLow ? '#fff8e6' : '#f0faf0',
+                                    border: isOut ? '1.5px solid #e11d4855' : isLow ? '1.5px solid #d9770655' : '1.5px solid #2d8a2d55',
+                                  }}
+                                />
+                                <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.52rem', fontWeight: 600, color: isOut ? '#e11d48' : isLow ? '#d97706' : '#2d8a2d' }}>
+                                  {isOut ? 'Agotado' : `${qty} ud${qty !== 1 ? 's' : ''}`}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {form.tallasDama.length > 0 && (
+                      <div>
+                        <Text size="xs" fw={700} mb={8} style={{ color: '#c2255c', fontFamily: '"Outfit",sans-serif', textTransform: 'uppercase', letterSpacing: '0.7px' }}>Dama</Text>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {[...form.tallasDama].sort((a,b) => parseFloat(a)-parseFloat(b) || String(a).localeCompare(String(b))).map(t => {
+                            const key = `D-${t}`;
+                            const val = stockEdit[key];
+                            const qty = val !== undefined ? parseInt(val) : 0;
+                            const isOut = qty === 0;
+                            const isLow = qty > 0 && qty <= 2;
+                            return (
+                              <div key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.68rem', fontWeight: 700, color: '#c2255c' }}>T. {t}</span>
+                                <input
+                                  type="number" min="0"
+                                  value={val !== undefined ? val : 0}
+                                  onChange={e => setStockEdit(p => ({ ...p, [key]: e.target.value }))}
+                                  style={{
+                                    width: 56, padding: '6px 4px', borderRadius: 8, textAlign: 'center',
+                                    fontFamily: '"Outfit",sans-serif', fontSize: '0.85rem', fontWeight: 700, outline: 'none',
+                                    color: isOut ? '#e11d48' : isLow ? '#d97706' : '#1a5c1a',
+                                    background: isOut ? '#fff0f2' : isLow ? '#fff8e6' : '#f0faf0',
+                                    border: isOut ? '1.5px solid #e11d4855' : isLow ? '1.5px solid #d9770655' : '1.5px solid #2d8a2d55',
+                                  }}
+                                />
+                                <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.52rem', fontWeight: 600, color: isOut ? '#e11d48' : isLow ? '#d97706' : '#2d8a2d' }}>
+                                  {isOut ? 'Agotado' : `${qty} ud${qty !== 1 ? 's' : ''}`}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1414,6 +1527,291 @@ function LocationFormModal({ open, location, onClose, onSave }) {
         </Button>
       </div>
     </Modal>
+  );
+}
+
+function ExtrasPanel({ storeData, onRefresh }) {
+  const [ringBoxes, setRingBoxes] = React.useState(() => getRingBoxes());
+  const [agregados, setAgregados] = React.useState(() => getAgregados());
+  const [uploadingBox, setUploadingBox] = React.useState(null);
+  const [agForm, setAgForm] = React.useState({ title: '', price: '', tag: '', photo: '' });
+  const [editingAg, setEditingAg] = React.useState(null);
+  const [uploadingAgPhoto, setUploadingAgPhoto] = React.useState(false);
+  const [lightboxSrc, setLightboxSrc] = React.useState(null);
+
+  // Sync when storeData changes
+  React.useEffect(() => {
+    setRingBoxes(getRingBoxes());
+    setAgregados(getAgregados());
+  }, [storeData]);
+
+  const saveBoxes = (updated) => {
+    setRingBoxes(updated);
+    updateRingBoxes(updated);
+    onRefresh();
+    notifications.show({ title: 'Guardado', message: 'Cajas actualizadas', color: 'green' });
+  };
+
+  const handleBoxPhoto = async (type, file, slot = 'photo') => {
+    if (!file) return;
+    setUploadingBox(type + slot);
+    try {
+      const b64 = await uploadImage(file);
+      const updated = { ...ringBoxes, [type]: { ...ringBoxes[type], [slot]: b64 } };
+      saveBoxes(updated);
+    } catch { notifications.show({ title: 'Error', message: 'Error al subir foto', color: 'red' }); }
+    finally { setUploadingBox(null); }
+  };
+
+  const handleAgPhotoUpload = async (file) => {
+    if (!file) return;
+    setUploadingAgPhoto(true);
+    try {
+      const b64 = await uploadImage(file);
+      if (editingAg) setEditingAg(p => ({ ...p, photo: b64 }));
+      else setAgForm(p => ({ ...p, photo: b64 }));
+    } catch { notifications.show({ title: 'Error', message: 'Error al subir foto', color: 'red' }); }
+    finally { setUploadingAgPhoto(false); }
+  };
+
+  const handleAddAgregado = () => {
+    if (!agForm.title.trim()) { notifications.show({ title: 'Error', message: 'El título es obligatorio', color: 'red' }); return; }
+    addAgregado({ id: generateId(), title: agForm.title.trim(), price: agForm.price, tag: agForm.tag.trim(), photo: agForm.photo });
+    setAgForm({ title: '', price: '', tag: '', photo: '' });
+    setAgregados(getAgregados());
+    onRefresh();
+    notifications.show({ title: 'Agregado', message: 'Agregado guardado', color: 'green' });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingAg) return;
+    updateAgregado(editingAg.id, { title: editingAg.title, price: editingAg.price, tag: editingAg.tag, photo: editingAg.photo });
+    setEditingAg(null);
+    setAgregados(getAgregados());
+    onRefresh();
+    notifications.show({ title: 'Actualizado', message: 'Agregado actualizado', color: 'green' });
+  };
+
+  const handleDeleteAg = (id) => {
+    deleteAgregado(id);
+    setAgregados(getAgregados());
+    onRefresh();
+    notifications.show({ title: 'Eliminado', message: 'Agregado eliminado', color: 'red' });
+  };
+
+  const handleReorder = (fromIdx, toIdx) => {
+    reorderAgregados(fromIdx, toIdx);
+    setAgregados(getAgregados());
+    onRefresh();
+  };
+
+  const PhotoSlot = ({ type, slot, label, color, size = 80 }) => {
+    const box = ringBoxes[type] || {};
+    const src = box[slot] || '';
+    const uploading = uploadingBox === (type + slot);
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.6rem', fontWeight: 600 }}>{label}</Text>
+        {src ? (
+          <div style={{ position: 'relative' }}>
+            <img src={src} alt="" onClick={() => setLightboxSrc(src)}
+              style={{ width: size, height: size, borderRadius: 10, objectFit: 'cover', cursor: 'zoom-in', border: `2px solid ${color}44` }} />
+            <ActionIcon size="xs" color="red" variant="filled" radius="xl"
+              style={{ position: 'absolute', top: -5, right: -5 }}
+              onClick={() => saveBoxes({ ...ringBoxes, [type]: { ...box, [slot]: '' } })}>
+              <IconX size={9} />
+            </ActionIcon>
+          </div>
+        ) : (
+          <label style={{ cursor: 'pointer' }}>
+            <div style={{ width: size, height: size, borderRadius: 10, border: `2px dashed ${color}55`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, background: `${color}08` }}>
+              {uploading ? <Text size="xs" c="dimmed">...</Text> : <><IconUpload size={16} color={color} /><Text size="xs" c="dimmed" style={{ fontSize: '0.5rem' }}>Subir</Text></>}
+            </div>
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleBoxPhoto(type, e.target.files?.[0], slot)} />
+          </label>
+        )}
+      </div>
+    );
+  };
+
+  const BoxConfig = ({ type, label, color }) => {
+    const box = ringBoxes[type] || {};
+    return (
+      <div style={{ border: `1.5px solid ${color}33`, borderRadius: 14, overflow: 'hidden', marginBottom: 14 }}>
+        <div style={{ padding: '10px 14px', background: `${color}11`, borderBottom: `1px solid ${color}22` }}>
+          <Text size="sm" fw={700} style={{ fontFamily: '"Outfit",sans-serif', color }}>{label}</Text>
+          <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit",sans-serif' }}>
+            {type === 'cheap' ? 'Anillos hasta S/. 39' : 'Anillos desde S/. 40'}
+          </Text>
+        </div>
+        <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Dos fotos lado a lado */}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+            <PhotoSlot type={type} slot="photo"  label="Foto principal (grande)" color={color} size={88} />
+            <PhotoSlot type={type} slot="photo2" label="Foto secundaria (miniatura)" color={color} size={68} />
+            <div style={{ flex: 1 }} />
+          </div>
+          <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.58rem', background: `${color}0a`, padding: '5px 10px', borderRadius: 7 }}>
+            La foto principal aparece en el cuadro grande. La secundaria aparece como miniatura superpuesta en la esquina inferior izquierda.
+          </Text>
+          {/* Fields */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <TextInput label="Título" size="xs" radius="md" value={box.title || ''}
+              onChange={e => setRingBoxes(p => ({ ...p, [type]: { ...p[type], title: e.currentTarget.value } }))} />
+            <TextInput label="Etiqueta (ej: Incluida / Gratis)" size="xs" radius="md" value={box.label || ''}
+              onChange={e => setRingBoxes(p => ({ ...p, [type]: { ...p[type], label: e.currentTarget.value } }))} />
+            <Button size="xs" radius="md" style={{ background: color, alignSelf: 'flex-start' }}
+              onClick={() => saveBoxes(ringBoxes)}>Guardar</Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {/* Ring Boxes */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <IconGift size={18} color={COLORS.orange} />
+          <Text size="md" fw={700} style={{ fontFamily: '"Playfair Display",serif', color: COLORS.navy }}>Cajas de Anillos</Text>
+        </div>
+        <Text size="xs" c="dimmed" mb={12} style={{ fontFamily: '"Outfit",sans-serif' }}>
+          Configura las dos cajas que se muestran en cada anillo. Puedes subir una foto de cada caja.
+        </Text>
+        <BoxConfig type="cheap" label="Caja Estándar (hasta S/. 39)" color={COLORS.orange} />
+        <BoxConfig type="premium" label="Caja Premium (desde S/. 40)" color="#2c4a80" />
+      </div>
+
+      {/* Agregados */}
+      <div style={{ borderTop: `1px solid ${COLORS.borderLight}`, paddingTop: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <IconPlus size={18} color={COLORS.orange} />
+          <Text size="md" fw={700} style={{ fontFamily: '"Playfair Display",serif', color: COLORS.navy }}>Agregados</Text>
+        </div>
+        <Text size="xs" c="dimmed" mb={14} style={{ fontFamily: '"Outfit",sans-serif' }}>
+          Productos adicionales opcionales que aparecen en la vista de cada anillo (ej: caja premium, acta de promesa, etc.)
+        </Text>
+
+        {/* Formulario nuevo */}
+        <div style={{ border: `1.5px dashed ${COLORS.orange}55`, borderRadius: 14, padding: 14, marginBottom: 16, background: '#fff9f5' }}>
+          <Text size="xs" fw={700} mb={10} style={{ fontFamily: '"Outfit",sans-serif', color: COLORS.orange }}>Nuevo Agregado</Text>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            {/* photo */}
+            <label style={{ cursor: 'pointer', flexShrink: 0 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 10, border: `2px dashed ${COLORS.orange}55`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, background: '#fff4e6' }}>
+                {agForm.photo ? (
+                  <img src={agForm.photo} alt="" style={{ width: '100%', height: '100%', borderRadius: 8, objectFit: 'cover' }} onClick={e => { e.preventDefault(); setLightboxSrc(agForm.photo); }} />
+                ) : uploadingAgPhoto ? <Text size="xs">...</Text> : <><IconPhoto size={16} color={COLORS.orange} /><Text size="xs" c="dimmed" style={{ fontSize: '0.5rem' }}>foto</Text></>}
+              </div>
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleAgPhotoUpload(e.target.files?.[0])} />
+            </label>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <TextInput placeholder="Título (ej: Caja de terciopelo)" size="xs" radius="md" value={agForm.title}
+                onChange={e => setAgForm(p => ({ ...p, title: e.currentTarget.value }))} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                <TextInput placeholder="Precio S/. (opcional)" size="xs" radius="md" value={agForm.price}
+                  onChange={e => setAgForm(p => ({ ...p, price: e.currentTarget.value }))} />
+                <TextInput placeholder="Etiqueta (ej: Opcional)" size="xs" radius="md" value={agForm.tag}
+                  onChange={e => setAgForm(p => ({ ...p, tag: e.currentTarget.value }))} />
+              </div>
+              <Button size="xs" radius="md" style={{ background: COLORS.orange, alignSelf: 'flex-start' }} onClick={handleAddAgregado} leftSection={<IconPlus size={12} />}>
+                Agregar
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Lista de agregados */}
+        {agregados.length === 0 ? (
+          <Text ta="center" c="dimmed" py="md" size="xs" style={{ fontFamily: '"Outfit",sans-serif' }}>No hay agregados. Agrega el primero arriba.</Text>
+        ) : (
+          <AnimatePresence>
+            {agregados.map((ag, idx) => (
+              <motion.div key={ag.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -60 }}
+                style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 8 }}>
+                {/* Reorder */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                  <motion.button whileTap={{ scale: 0.85 }} disabled={idx === 0} onClick={() => handleReorder(idx, idx - 1)}
+                    style={{ width: 24, height: 24, borderRadius: 6, border: 'none', cursor: idx === 0 ? 'default' : 'pointer', background: idx === 0 ? COLORS.borderLight : COLORS.offWhite, display: 'flex', alignItems: 'center', justifyContent: 'center', color: idx === 0 ? COLORS.borderLight : COLORS.navy, padding: 0 }}>
+                    <IconArrowUp size={12} />
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.85 }} disabled={idx === agregados.length - 1} onClick={() => handleReorder(idx, idx + 1)}
+                    style={{ width: 24, height: 24, borderRadius: 6, border: 'none', cursor: idx === agregados.length - 1 ? 'default' : 'pointer', background: idx === agregados.length - 1 ? COLORS.borderLight : COLORS.offWhite, display: 'flex', alignItems: 'center', justifyContent: 'center', color: idx === agregados.length - 1 ? COLORS.borderLight : COLORS.navy, padding: 0 }}>
+                    <IconArrowDown size={12} />
+                  </motion.button>
+                </div>
+                {/* Card */}
+                <div style={{ flex: 1 }}>
+                  {editingAg?.id === ag.id ? (
+                    <Card padding="sm" radius="md" style={{ border: `1.5px solid ${COLORS.orange}55` }}>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                        <label style={{ cursor: 'pointer', flexShrink: 0 }}>
+                          <div style={{ width: 56, height: 56, borderRadius: 8, border: `2px dashed ${COLORS.orange}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#fff4e6' }}>
+                            {editingAg.photo ? <img src={editingAg.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconPhoto size={14} color={COLORS.orange} />}
+                          </div>
+                          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleAgPhotoUpload(e.target.files?.[0])} />
+                        </label>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <TextInput size="xs" radius="md" placeholder="Título" value={editingAg.title}
+                            onChange={e => setEditingAg(p => ({ ...p, title: e.currentTarget.value }))} />
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                            <TextInput size="xs" radius="md" placeholder="Precio" value={editingAg.price || ''}
+                              onChange={e => setEditingAg(p => ({ ...p, price: e.currentTarget.value }))} />
+                            <TextInput size="xs" radius="md" placeholder="Etiqueta" value={editingAg.tag || ''}
+                              onChange={e => setEditingAg(p => ({ ...p, tag: e.currentTarget.value }))} />
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <Button size="xs" radius="md" style={{ background: COLORS.navy }} onClick={handleSaveEdit}>Guardar</Button>
+                            <Button size="xs" radius="md" variant="subtle" onClick={() => setEditingAg(null)}>Cancelar</Button>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  ) : (
+                    <Card padding="sm" radius="md" style={{ border: `1px solid ${COLORS.borderLight}` }}>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        {ag.photo ? (
+                          <img src={ag.photo} alt="" onClick={() => setLightboxSrc(ag.photo)}
+                            style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', cursor: 'zoom-in', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: 44, height: 44, borderRadius: 8, background: COLORS.offWhite, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <IconGift size={18} color={COLORS.borderLight} />
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <Text size="sm" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit",sans-serif' }}>{ag.title}</Text>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                            {ag.price && <Text size="xs" style={{ color: COLORS.orange, fontWeight: 600 }}>S/. {ag.price}</Text>}
+                            {ag.tag && <Badge size="xs" variant="light" color="blue">{ag.tag}</Badge>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          <ActionIcon size="sm" variant="light" color="blue" radius="xl" onClick={() => setEditingAg({ ...ag })}><IconEdit size={13} /></ActionIcon>
+                          <ActionIcon size="sm" variant="light" color="red" radius="xl" onClick={() => handleDeleteAg(ag.id)}><IconTrash size={13} /></ActionIcon>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
+      </div>
+
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <div onClick={() => setLightboxSrc(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
+          <img src={lightboxSrc} alt="" style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: 16, objectFit: 'contain', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+          <div onClick={() => setLightboxSrc(null)}
+            style={{ position: 'absolute', top: 18, right: 18, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.3)' }}>
+            <IconX size={18} color="white" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

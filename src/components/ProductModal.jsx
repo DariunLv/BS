@@ -7,7 +7,7 @@ import {
   IconDiamond, IconChevronLeft, IconChevronRight, IconRuler2,
   IconSparkles, IconPackage, IconBrandWhatsapp,
   IconHeart, IconX, IconInfoCircle, IconDroplet,
-  IconCategory, IconZoomIn, IconGift, IconFileText, IconAlignLeft,
+  IconCategory, IconZoomIn, IconGift, IconFileText, IconAlignLeft, IconCheck,
 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
 import { getWhatsappNumber, trackProductView } from '../utils/store';
@@ -22,6 +22,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
   const [liked, setLiked] = useState(false);
   const [imageZoomed, setImageZoomed] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImgSrc, setLightboxImgSrc] = useState(null); // para fotos de agregados/cajas
   const [pinchScale, setPinchScale] = useState(1);
   const pinchStartDist = useRef(null);
   const pinchStartScale = useRef(1);
@@ -74,6 +75,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
       setImageZoomed(false);
       setModalImgLoaded(false);
       setLightboxOpen(false);
+      setLightboxImgSrc(null);
       setPinchScale(1);
       setActiveIndex(siblingIndex ?? 0);
     }
@@ -104,6 +106,11 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
   const tallas = product.tallas || [];
   const tallasVaron = product.tallasVaron || [];
   const tallasDama = product.tallasDama || [];
+  // Ordenar tallas numéricamente de menor a mayor
+  const sortTallas = (arr) => [...arr].sort((a, b) => parseFloat(a) - parseFloat(b) || String(a).localeCompare(String(b)));
+  const tallasVaronSorted = sortTallas(tallasVaron);
+  const tallasDamaSorted  = sortTallas(tallasDama);
+  const tallasLegacySorted = sortTallas(tallas);
   const isAnillos = product.categoryId?.includes('anillo');
   const isPack = product.categoryId?.includes('pack');
   const hasTallas = isAnillos && (tallas.length > 0 || tallasVaron.length > 0 || tallasDama.length > 0);
@@ -728,7 +735,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                     color: '#2c4a80', fontWeight: 600, display: 'block', marginBottom: 6,
                   }}>Varón</span>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {tallasVaron.map((t, i) => {
+                    {tallasVaronSorted.map((t, i) => {
                       const val = `V-${t}`;
                       const isSelected = selectedTalla === val;
                       const outOfStock = isSizeOutOfStock(inv, val);
@@ -767,7 +774,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                     color: '#c2255c', fontWeight: 600, display: 'block', marginBottom: 6,
                   }}>Dama</span>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {tallasDama.map((t, i) => {
+                    {tallasDamaSorted.map((t, i) => {
                       const val = `D-${t}`;
                       const isSelected = selectedTalla === val;
                       const outOfStock = isSizeOutOfStock(inv, val);
@@ -801,7 +808,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
               {/* Tallas antiguas (compatibilidad) */}
               {tallas.length > 0 && tallasVaron.length === 0 && tallasDama.length === 0 && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {tallas.map((t, i) => {
+                  {tallasLegacySorted.map((t, i) => {
                     const isSelected = selectedTalla === t;
                     return (
                       <motion.button key={i} whileTap={{ scale: 0.9 }}
@@ -970,108 +977,235 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
             </div>
           )}
 
-          {/* ====== INCLUYE: caja de anillos + acta de promesa — solo anillos ====== */}
-          {isAnillos && !hidePacks && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, delay: 0.12, ease: [0.22,1,0.36,1] }}
-              style={{ marginBottom: 20 }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#fff4e6', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(247,103,7,0.15)' }}>
-                  <IconGift size={14} color={COLORS.orange} />
-                </div>
-                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.8rem', color: COLORS.navy, fontWeight: 600 }}>
-                  Incluye con tu anillo
-                </span>
-              </div>
+          {/* ====== INCLUYE GRATIS: caja según precio + agregados — solo anillos ====== */}
+          {isAnillos && !hidePacks && (() => {
+            const ringBoxes = storeData?.ringBoxes || {};
+            const isPremium = parseFloat(product.price || 0) >= 40;
+            const boxData = isPremium
+              ? (ringBoxes.premium || { title: 'Caja Premium', photo: '', label: 'Incluida' })
+              : (ringBoxes.cheap   || { title: 'Caja de anillo', photo: '', label: 'Incluida' });
+            const agregados = (storeData?.agregados || []).sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {/* Caja de anillos */}
-                <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-                  padding: '18px 12px', borderRadius: 16,
-                  background: 'linear-gradient(135deg, #fff4e6 0%, #ffe8cc 100%)',
-                  border: '1.5px solid rgba(247,103,7,0.2)',
-                  boxShadow: '0 2px 10px rgba(247,103,7,0.08)',
-                }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: 16,
-                    background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 4px 14px rgba(247,103,7,0.18)',
-                    border: '1px solid rgba(247,103,7,0.12)',
-                  }}>
-                    <IconGift size={28} color={COLORS.orange} />
+            const GREEN       = '#1a7c3e';
+            const GREEN_LIGHT = '#d6f0e0';   // verde claro para el fondo de la card
+            const GREEN_MID   = '#2d9e56';
+
+            // La "imagen pequeña" usa la segunda foto de la caja si existe, si no la misma
+            // boxData.photo es la foto principal; boxData.photo2 sería la segunda (si el admin la sube)
+            // Por ahora usamos la misma foto con filtro diferente como miniatura
+            const photoMain  = boxData.photo  || '';
+            const photoThumb = boxData.photo2 || boxData.photo || '';
+
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.08, ease: [0.22,1,0.36,1] }}
+                style={{ marginBottom: 24 }}
+              >
+                {/* ── Header centrado ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #2d9e5633)' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <IconGift size={13} color={GREEN} />
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', fontWeight: 700, color: GREEN, textTransform: 'uppercase', letterSpacing: '1.1px' }}>
+                      Incluye gratis con tu anillo
+                    </span>
+                    <IconGift size={13} color={GREEN} />
                   </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem', fontWeight: 700, color: COLORS.navy, lineHeight: 1.3 }}>
-                      Caja de anillos
-                    </div>
-                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 600, marginTop: 3 }}>
-                      Incluida
-                    </div>
-                  </div>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #2d9e5633, transparent)' }} />
                 </div>
 
-                {/* Acta de promesa */}
+                {/* ── Card principal: fondo verde claro ── */}
                 <div style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-                  padding: '18px 12px', borderRadius: 16,
-                  background: 'linear-gradient(135deg, #f0f4ff 0%, #dde8ff 100%)',
-                  border: '1.5px solid rgba(44,74,128,0.18)',
-                  boxShadow: '0 2px 10px rgba(44,74,128,0.07)',
+                  position: 'relative',
+                  background: GREEN_LIGHT,        // fondo verde claro como pediste
+                  borderRadius: 18,
+                  border: '1.5px solid #b2dfc4',
+                  overflow: 'visible',            // visible para que la miniatura pueda sobresalir
+                  marginBottom: agregados.length > 0 ? 22 : 0,
+                  // padding bottom suficiente para que la mini no tape nada importante
+                  paddingBottom: 16,
                 }}>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: 16,
-                    background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 4px 14px rgba(44,74,128,0.15)',
-                    border: '1px solid rgba(44,74,128,0.12)',
-                  }}>
-                    <IconFileText size={28} color="#2c4a80" />
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem', fontWeight: 700, color: COLORS.navy, lineHeight: 1.3 }}>
-                      Acta de promesa
+
+                  <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+
+                    {/* ══ ZONA IZQUIERDA ══ */}
+                    <div style={{
+                      position: 'relative',
+                      width: 154,
+                      flexShrink: 0,
+                      // Alto = imagen grande (155) + margen top (14) + espacio para mini (38)
+                      minHeight: 207,
+                    }}>
+
+                      {/* Grid de puntos: sale por la izquierda, solapado entre el borde
+                          exterior de la card y el borde izquierdo de la imagen grande.
+                          Posición: top alineado con la imagen, left negativo para salir */}
+                      <SquaresGrid
+                        color="#000000"
+                        rows={6} cols={5} gap={6} size={3.2}
+                        style={{
+                          position: 'absolute',
+                          top: 22,
+                          left: -14,
+                          opacity: 0.65,
+                          pointerEvents: 'none',
+                          zIndex: 0,
+                        }}
+                      />
+
+                      {/* Imagen grande con borde blanco */}
+                      <div style={{
+                        position: 'absolute',
+                        top: 14,
+                        left: 20,            // margen izquierdo para que los puntos queden entre él y el borde
+                        width: 126,
+                        height: 152,
+                        borderRadius: 14,
+                        border: '2.5px solid white',
+                        background: 'white',
+                        overflow: 'hidden',
+                        boxShadow: '0 6px 20px rgba(0,0,0,0.13)',
+                        zIndex: 1,
+                        cursor: photoMain ? 'zoom-in' : 'default',
+                      }} onClick={() => { if (photoMain) setLightboxImgSrc(photoMain); }}>
+                        {photoMain ? (
+                          <>
+                            <img src={photoMain} alt={boxData.title}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            <div style={{
+                              position: 'absolute', bottom: 7, right: 7,
+                              width: 22, height: 22, borderRadius: 7,
+                              background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(6px)',
+                              border: '1px solid rgba(255,255,255,0.3)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              pointerEvents: 'none',
+                            }}>
+                              <IconZoomIn size={11} color="rgba(255,255,255,0.92)" strokeWidth={2} />
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e8f5ee' }}>
+                            <IconGift size={44} color={GREEN + '66'} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Imagen pequeña:
+                          - Posicionada sobre la esquina inferior izquierda de la imagen GRANDE
+                          - top = 14(marginTop) + 152(alto img) - 38(mitad de la mini) = 128
+                            → queda mitad dentro de la img grande, mitad fuera
+                          - left = 20(margenImg) - 10(sobresale a la izq) = 10
+                          - zIndex > imagen grande para estar encima
+                          - NO tapa la lupa (que está en la esquina inferior derecha) */}
+                      <div style={{
+                        position: 'absolute',
+                        top: 128,             // queda superpuesta en el borde inferior de la img grande
+                        left: 10,             // sobresale un poco a la izquierda de la img grande
+                        width: 68,
+                        height: 68,
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        border: '3px solid white',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+                        zIndex: 4,            // encima de la imagen grande (z:1) y los puntos (z:0)
+                        background: '#e8f5ee',
+                        cursor: photoThumb ? 'zoom-in' : 'default',
+                      }} onClick={() => { if (photoThumb) setLightboxImgSrc(photoThumb); }}>
+                        {photoThumb ? (
+                          <img src={photoThumb} alt=""
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <IconGift size={24} color={GREEN} />
+                          </div>
+                        )}
+
+                      </div>
+
+                    </div>{/* fin zona izquierda */}
+
+                    {/* ══ ZONA DERECHA: info ══ */}
+                    <div style={{
+                      flex: 1,
+                      padding: '18px 16px 10px 10px',
+                      display: 'flex', flexDirection: 'column', gap: 10,
+                    }}>
+
+                      {/* Badge "INCLUIDA GRATIS" */}
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start' }}>
+                        <IconSparkles size={10} color={GREEN} />
+                        <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', fontWeight: 800, letterSpacing: '1.2px', textTransform: 'uppercase', color: GREEN }}>
+                          {boxData.label || 'Incluida gratis'}
+                        </span>
+                      </div>
+
+                      {/* Título */}
+                      <div style={{
+                        fontFamily: '"Playfair Display", serif',
+                        fontSize: '0.95rem', fontWeight: 700,
+                        color: '#111', lineHeight: 1.25,
+                      }}>
+                        {boxData.title || (isPremium ? 'Caja Premium' : 'Caja de anillo')}
+                      </div>
+
+                      {/* Checkmarks */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                        {[
+                          isPremium ? 'Presentación premium de lujo' : 'Presentación elegante',
+                          'Protege y conserva el anillo',
+                          'Lista para regalar',
+                        ].map((txt, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <IconCheck size={11} color={GREEN} strokeWidth={3} />
+                            <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.67rem', color: '#333', fontWeight: 500 }}>{txt}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Precio */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'baseline', gap: 4,
+                          background: GREEN,
+                          borderRadius: 12, padding: '6px 16px',
+                          boxShadow: '0 4px 14px rgba(26,124,62,0.35)',
+                        }}>
+                          <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem', fontWeight: 700, color: 'rgba(255,255,255,0.85)' }}>S/.</span>
+                          <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.7rem', fontWeight: 900, color: 'white', lineHeight: 1, letterSpacing: '-1px' }}>0.00</span>
+                        </div>
+                        <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', fontWeight: 700, color: GREEN, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Gratis</span>
+                      </div>
+
                     </div>
-                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: '#2c4a80', fontWeight: 600, marginTop: 3 }}>
-                      Opcional
-                    </div>
+
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+
+                {/* ── Agregados: carrusel horizontal LTR ── */}
+                {agregados.length > 0 && (
+                  <AgregadosCarousel agregados={agregados} onImageClick={setLightboxImgSrc} />
+                )}
+              </motion.div>
+            );
+          })()}
 
           {/* ====== PACKS DISPONIBLES — solo dentro de un anillo, y solo si no viene desde categoría pack ====== */}
           {isAnillos && !hidePacks && allPacks.length > 0 && (
             <div style={{ marginBottom: 24 }}>
 
-              {/* Header premium con gradiente */}
-              <div style={{
-                position: 'relative', overflow: 'hidden',
-                background: `linear-gradient(135deg, ${COLORS.navy} 0%, #1a3260 100%)`,
-                borderRadius: 16, padding: '16px 18px', marginBottom: 14,
-                boxShadow: '0 4px 20px rgba(26,39,68,0.2)',
-              }}>
-                <div style={{ position: 'absolute', top: -18, right: -18, width: 80, height: 80, borderRadius: '50%', background: 'rgba(247,103,7,0.12)', pointerEvents: 'none' }} />
-                <div style={{ position: 'absolute', bottom: -12, left: 20, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(247,103,7,0.2)', border: '1px solid rgba(247,103,7,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <IconGift size={20} color={COLORS.orange} />
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1rem', fontWeight: 700, color: 'white', lineHeight: 1.2 }}>
-                      Packs de Presentación
-                    </div>
-                    <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', marginTop: 3 }}>
-                      Hazlo especial · regala una experiencia única
-                    </div>
-                  </div>
-                  <div style={{ marginLeft: 'auto', flexShrink: 0 }}>
-                    <IconSparkles size={18} color="rgba(212,165,116,0.6)" />
-                  </div>
+              {/* Header — mismo estilo que la sección de cajas */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #2c4a8033)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <IconGift size={13} color={COLORS.navy} />
+                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', fontWeight: 700, color: COLORS.navy, textTransform: 'uppercase', letterSpacing: '1.1px' }}>
+                    Packs de Presentación
+                  </span>
+                  <IconGift size={13} color={COLORS.orange} />
                 </div>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #f7670733, transparent)' }} />
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1086,56 +1220,87 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.22, delay: packIdx * 0.06, ease: [0.22,1,0.36,1] }}
                       style={{
-                        borderRadius: 18, overflow: 'hidden',
-                        border: `1px solid ${pack.soldOut ? COLORS.borderLight : 'rgba(247,103,7,0.2)'}`,
-                        background: pack.soldOut ? '#f9f9f9' : 'white',
+                        position: 'relative',
+                        borderRadius: 18,
+                        overflow: 'visible',
+                        background: pack.soldOut ? '#f9f9f9' : '#eef2ff',
+                        border: `1.5px solid ${pack.soldOut ? COLORS.borderLight : '#c5d2f0'}`,
                         opacity: pack.soldOut ? 0.65 : 1,
                         boxShadow: pack.soldOut ? 'none' : '0 4px 20px rgba(26,39,68,0.1)',
                       }}
                     >
+                      {/* Puntos negros decorativos — esquina superior derecha */}
+                      {!pack.soldOut && (
+                        <CrossGrid
+                          color="#000000"
+                          rows={3} cols={3} gap={8} size={6}
+                          style={{
+                            position: 'absolute', top: -6, right: -6,
+                            opacity: 0.5, pointerEvents: 'none', zIndex: 0,
+                          }}
+                        />
+                      )}
+
                       {/* Zona imagen + info */}
-                      <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 110 }}>
-                        {/* Imagen — ocupa todo el alto, cover */}
-                        <div style={{ width: 110, flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'stretch', minHeight: 120, position: 'relative', zIndex: 1 }}>
+
+                        {/* Imagen con borde blanco — igual estilo caja */}
+                        <div style={{
+                          width: 120, flexShrink: 0,
+                          margin: 12, marginRight: 0,
+                          borderRadius: 13,
+                          border: '2.5px solid white',
+                          overflow: 'hidden',
+                          boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
+                          background: 'white',
+                          alignSelf: 'stretch',
+                        }}>
                           <PackImg
                             packId={pack.id}
                             fallbackImages={pack.images}
                             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                            fallbackStyle={{ width: 110, height: '100%', minHeight: 110, background: 'linear-gradient(135deg, #fff4e6, #ffe0c2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            fallbackStyle={{ width: '100%', height: '100%', minHeight: 110, background: 'linear-gradient(135deg, #eef2ff, #dde4ff)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           />
-                          {/* Viñeta para fusionarse */}
-                          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 55%, rgba(255,255,255,0.18))' }} />
                         </div>
 
                         {/* Info derecha */}
-                        <div style={{ flex: 1, padding: '14px 14px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ flex: 1, padding: '16px 14px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+
+                          {/* Badge navy */}
+                          {!pack.soldOut && (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start' }}>
+                              <IconSparkles size={10} color={COLORS.navy} />
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.55rem', fontWeight: 800, letterSpacing: '1.2px', textTransform: 'uppercase', color: COLORS.navy }}>
+                                Pack especial
+                              </span>
+                            </div>
+                          )}
+
                           {/* Nombre */}
-                          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '1rem', fontWeight: 700, color: pack.soldOut ? COLORS.textMuted : COLORS.navy, lineHeight: 1.25 }}>
+                          <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '0.95rem', fontWeight: 700, color: pack.soldOut ? COLORS.textMuted : COLORS.navy, lineHeight: 1.25 }}>
                             {pack.title}
                           </div>
 
-                          {/* Contenidos como chips */}
+                          {/* Contenidos como chips naranja */}
                           {pack.contenidos?.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                               {pack.contenidos.map((c, i) => (
-                                <span key={i} style={{
-                                  fontFamily: '"Outfit", sans-serif', fontSize: '0.52rem',
-                                  background: '#fff4e6', color: COLORS.orange, fontWeight: 600,
-                                  padding: '2px 8px', borderRadius: 20,
-                                  border: '1px solid rgba(247,103,7,0.18)',
-                                }}>{c.nombre}</span>
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <IconCheck size={9} color={COLORS.orange} strokeWidth={3} />
+                                  <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: '#333', fontWeight: 500 }}>{c.nombre}</span>
+                                </div>
                               ))}
                             </div>
                           )}
 
-                          {/* Precio pack destacado */}
+                          {/* Precio pack */}
                           {!pack.soldOut ? (
                             <div style={{ marginTop: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 3, alignSelf: 'flex-start',
-                              background: 'linear-gradient(90deg, rgba(247,103,7,0.1), rgba(247,103,7,0.04))',
-                              padding: '5px 12px', borderRadius: 10, border: '1px solid rgba(247,103,7,0.2)',
+                              background: COLORS.orange, padding: '5px 14px', borderRadius: 10,
+                              boxShadow: '0 2px 8px rgba(247,103,7,0.3)',
                             }}>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', color: COLORS.orange, fontWeight: 600 }}>Pack</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.15rem', color: COLORS.orange, fontWeight: 900, lineHeight: 1 }}>S/.{fmt(packP)}</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>Pack S/.</span>
+                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.15rem', color: 'white', fontWeight: 900, lineHeight: 1 }}>{fmt(packP)}</span>
                             </div>
                           ) : (
                             <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.65rem', color: COLORS.textMuted, fontWeight: 600, marginTop: 'auto' }}>Agotado</span>
@@ -1143,64 +1308,74 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                         </div>
                       </div>
 
-                      {/* Desglose + total — fondo navy premium */}
+                      {/* Desglose de precios + botón — bloque navy separado, fuera del overflow:visible */}
                       {!pack.soldOut && (
                         <div style={{
-                          background: `linear-gradient(90deg, ${COLORS.navy} 0%, #1e3a6e 100%)`,
-                          display: 'flex', alignItems: 'stretch',
+                          margin: '10px 0 0 0',
+                          borderRadius: 16,
+                          overflow: 'hidden',
+                          boxShadow: '0 4px 18px rgba(26,39,68,0.22)',
                         }}>
-                          {/* Anillo */}
-                          <div style={{ flex: 1, padding: '10px 8px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.48rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.7px', fontWeight: 600, marginBottom: 3 }}>Anillo</div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>S/.</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>{fmt(ringP)}</span>
+                          {/* Fila de precios */}
+                          <div style={{
+                            background: `linear-gradient(100deg, #0f1f45 0%, #1a3260 60%, #1e3a6e 100%)`,
+                            display: 'flex', alignItems: 'stretch',
+                          }}>
+                            {/* Anillo */}
+                            <div style={{ flex: 1, padding: '14px 8px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+                              <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', letterSpacing: '0.9px', fontWeight: 700, marginBottom: 5 }}>Anillo</div>
+                              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+                                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>S/.</span>
+                                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.18rem', color: 'white', fontWeight: 900, lineHeight: 1 }}>{fmt(ringP)}</span>
+                              </div>
+                            </div>
+                            {/* Pack */}
+                            <div style={{ flex: 1, padding: '14px 8px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
+                              <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', color: 'rgba(255,255,255,0.38)', textTransform: 'uppercase', letterSpacing: '0.9px', fontWeight: 700, marginBottom: 5 }}>Pack</div>
+                              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+                                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>S/.</span>
+                                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.18rem', color: 'white', fontWeight: 900, lineHeight: 1 }}>{fmt(packP)}</span>
+                              </div>
+                            </div>
+                            {/* Total — fondo más oscuro con naranja */}
+                            <div style={{ flex: 1.5, padding: '14px 12px', textAlign: 'center', background: 'rgba(10,16,35,0.45)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginBottom: 5 }}>
+                                <IconSparkles size={9} color={COLORS.orange} />
+                                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', color: COLORS.orange, textTransform: 'uppercase', letterSpacing: '0.9px', fontWeight: 800 }}>Total</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2 }}>
+                                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.68rem', color: `${COLORS.orange}cc`, fontWeight: 700 }}>S/.</span>
+                                <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.4rem', color: COLORS.orange, fontWeight: 900, lineHeight: 1 }}>{fmt(combo)}</span>
+                              </div>
                             </div>
                           </div>
-                          {/* Pack */}
-                          <div style={{ flex: 1, padding: '10px 8px', textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
-                            <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.48rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.7px', fontWeight: 600, marginBottom: 3 }}>Pack</div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>S/.</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1rem', color: 'white', fontWeight: 800, lineHeight: 1 }}>{fmt(packP)}</span>
-                            </div>
-                          </div>
-                          {/* Total — destacado en naranja */}
-                          <div style={{ flex: 1.4, padding: '10px 10px', textAlign: 'center', background: 'rgba(247,103,7,0.15)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, marginBottom: 3 }}>
-                              <IconSparkles size={8} color={COLORS.orange} />
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.48rem', color: COLORS.orange, textTransform: 'uppercase', letterSpacing: '0.7px', fontWeight: 700 }}>Total</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 1 }}>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.62rem', color: 'rgba(247,103,7,0.85)', fontWeight: 600 }}>S/.</span>
-                              <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.2rem', color: COLORS.orange, fontWeight: 900, lineHeight: 1 }}>{fmt(combo)}</span>
-                            </div>
-                          </div>
+
+                          {/* Botón CTA — separado visualmente con línea naranja fina */}
+                          <button
+                            onClick={() => setSelectedPackDetail(pack)}
+                            style={{
+                              width: '100%', padding: '13px 16px',
+                              background: 'linear-gradient(100deg, #0d1b38 0%, #162545 100%)',
+                              border: 'none', borderTop: `2px solid ${COLORS.orange}22`,
+                              cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                              fontFamily: '"Outfit", sans-serif', fontSize: '0.78rem',
+                              color: 'white', fontWeight: 700, letterSpacing: '0.5px',
+                            }}
+                          >
+                            <IconGift size={15} color={COLORS.orange} />
+                            <span>Ver contenido del pack</span>
+                            <IconChevronRight size={14} color={`${COLORS.orange}88`} />
+                          </button>
                         </div>
                       )}
 
-                      {/* Botón CTA */}
-                      <button
-                        onClick={() => setSelectedPackDetail(pack)}
-                        style={{
-                          width: '100%', padding: '11px 14px',
-                          background: pack.soldOut ? 'transparent' : `linear-gradient(90deg, ${COLORS.orange} 0%, #ff7a1a 100%)`,
-                          border: 'none',
-                          cursor: pack.soldOut ? 'default' : 'pointer',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                          fontFamily: '"Outfit", sans-serif', fontSize: '0.72rem',
-                          color: pack.soldOut ? COLORS.textMuted : 'white',
-                          fontWeight: 700, letterSpacing: '0.4px',
-                          boxShadow: pack.soldOut ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.15)',
-                        }}
-                      >
-                        {pack.soldOut ? 'Agotado' : (
-                          <>
-                            <IconGift size={14} color="white" />
-                            Ver contenido del pack
-                          </>
-                        )}
-                      </button>
+                      {/* Botón agotado */}
+                      {pack.soldOut && (
+                        <div style={{ padding: '10px 14px', textAlign: 'center', color: COLORS.textMuted, fontFamily: '"Outfit", sans-serif', fontSize: '0.7rem', fontWeight: 600 }}>
+                          Agotado
+                        </div>
+                      )}
                     </motion.div>
                   );
                 })}
@@ -1260,7 +1435,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
 
     {/* Lightbox fuera del portal del Modal — renderiza directo en body */}
     <LightboxPortal
-      open={lightboxOpen}
+      open={lightboxOpen && !lightboxImgSrc}
       images={images}
       currentImage={currentImage}
       setCurrentImage={setCurrentImage}
@@ -1271,7 +1446,349 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
       productTitle={product?.title}
       onClose={() => { setLightboxOpen(false); setPinchScale(1); }}
     />
+
+    {/* Lightbox simple para fotos de cajas/agregados */}
+    {lightboxImgSrc && ReactDOM.createPortal(
+      <div onClick={() => setLightboxImgSrc(null)}
+        style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
+        <img src={lightboxImgSrc} alt=""
+          style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: 16, objectFit: 'contain', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
+        <button onClick={() => setLightboxImgSrc(null)}
+          style={{ position: 'absolute', top: 18, right: 18, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+          <IconX size={18} color="white" />
+        </button>
+      </div>,
+      document.body
+    )}
     </>
+  );
+}
+
+/* ====== AgregadosCarousel — carrusel RTL de tarjetas de agregados ====== */
+/* ====== SISTEMA DE ADORNOS GEOMÉTRICOS ====== */
+
+/* Cuadrícula de puntos circulares — el clásico */
+function DotsGrid({ color = '#000', rows = 5, cols = 6, gap = 7, dotSize = 3, style = {} }) {
+  const dots = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      dots.push(
+        <div key={`${r}-${c}`} style={{
+          width: dotSize, height: dotSize, borderRadius: '50%',
+          background: color,
+        }} />
+      );
+    }
+  }
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${cols}, ${dotSize}px)`,
+      gap: `${gap}px`,
+      ...style,
+    }}>
+      {dots}
+    </div>
+  );
+}
+
+/* Cuadrícula de cuadraditos — más geométrico */
+function SquaresGrid({ color = '#000', rows = 4, cols = 5, gap = 7, size = 3.5, style = {} }) {
+  const squares = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      squares.push(
+        <div key={`${r}-${c}`} style={{
+          width: size, height: size, borderRadius: 1,
+          background: color,
+        }} />
+      );
+    }
+  }
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${cols}, ${size}px)`,
+      gap: `${gap}px`,
+      ...style,
+    }}>
+      {squares}
+    </div>
+  );
+}
+
+/* Cuadrícula de cruces (+) SVG */
+function CrossGrid({ color = '#000', rows = 3, cols = 4, gap = 12, size = 8, style = {} }) {
+  const items = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      items.push(
+        <svg key={`${r}-${c}`} width={size} height={size} viewBox="0 0 10 10" style={{ display: 'block' }}>
+          <rect x="4" y="0" width="2" height="10" fill={color} rx="0.5" />
+          <rect x="0" y="4" width="10" height="2" fill={color} rx="0.5" />
+        </svg>
+      );
+    }
+  }
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${cols}, ${size}px)`,
+      gap: `${gap}px`,
+      ...style,
+    }}>
+      {items}
+    </div>
+  );
+}
+
+/* Cuadrícula de diamantes (rombos) SVG */
+function DiamondGrid({ color = '#000', rows = 3, cols = 4, gap = 10, size = 7, style = {} }) {
+  const items = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      items.push(
+        <svg key={`${r}-${c}`} width={size} height={size} viewBox="0 0 10 10" style={{ display: 'block' }}>
+          <polygon points="5,0 10,5 5,10 0,5" fill={color} />
+        </svg>
+      );
+    }
+  }
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${cols}, ${size}px)`,
+      gap: `${gap}px`,
+      ...style,
+    }}>
+      {items}
+    </div>
+  );
+}
+
+/* Líneas paralelas diagonales */
+function DiagonalLines({ color = '#000', count = 5, length = 24, thickness = 1.5, gap = 6, style = {} }) {
+  return (
+    <svg
+      width={count * (thickness + gap) + length * 0.7}
+      height={length}
+      style={{ display: 'block', ...style }}
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <line
+          key={i}
+          x1={i * (thickness + gap)}
+          y1={0}
+          x2={i * (thickness + gap) + length * 0.7}
+          y2={length}
+          stroke={color}
+          strokeWidth={thickness}
+          strokeLinecap="round"
+        />
+      ))}
+    </svg>
+  );
+}
+
+/* ====== AgregadosCarousel — carrusel LTR táctil, tarjetas premium ====== */
+function AgregadosCarousel({ agregados, onImageClick }) {
+  const scrollRef = useRef(null);
+  const [scrollState, setScrollState] = useState({ left: false, right: true });
+
+  const ORANGE      = '#f76707';
+  const ORANGE_LIGHT= '#fff1e6';
+  const ORANGE_MID  = '#fd7c2a';
+
+  const updateState = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setScrollState({
+      left:  el.scrollLeft > 4,
+      right: el.scrollLeft < el.scrollWidth - el.clientWidth - 4,
+    });
+  };
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollLeft = 0;
+    setTimeout(updateState, 80);
+    el.addEventListener('scroll', updateState, { passive: true });
+    return () => el.removeEventListener('scroll', updateState);
+  }, [agregados]);
+
+  const nudge = (dir) => {
+    scrollRef.current?.scrollBy({ left: dir * 170, behavior: 'smooth' });
+  };
+
+  return (
+    <div>
+      {/* Header con label y flechas */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #fd7c2a44)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <IconGift size={13} color={ORANGE} />
+            <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.6rem', fontWeight: 700, color: ORANGE, textTransform: 'uppercase', letterSpacing: '1.1px' }}>
+              También puedes agregar
+            </span>
+            <IconGift size={13} color={ORANGE} />
+          </div>
+          <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #fd7c2a44, transparent)' }} />
+        </div>
+        <div style={{ display: 'flex', gap: 5, marginLeft: 10 }}>
+          {[{ dir: -1, icon: <IconChevronLeft size={13} strokeWidth={2.8} /> }, { dir: 1, icon: <IconChevronRight size={13} strokeWidth={2.8} /> }].map(({ dir, icon }) => {
+            const active = dir === -1 ? scrollState.left : scrollState.right;
+            return (
+              <button key={dir} onClick={() => nudge(dir)}
+                style={{
+                  width: 28, height: 28, borderRadius: 9, border: 'none', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: active ? 'pointer' : 'default',
+                  background: active ? ORANGE : COLORS.borderLight,
+                  color: 'white',
+                  transition: 'all 0.2s ease',
+                  boxShadow: active ? '0 2px 8px rgba(247,103,7,0.35)' : 'none',
+                }}>
+                {icon}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Carrusel */}
+      <div style={{ position: 'relative' }}>
+        {scrollState.left && (
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 30, zIndex: 2, background: 'linear-gradient(90deg, rgba(255,255,255,0.96), transparent)', pointerEvents: 'none' }} />
+        )}
+        {scrollState.right && (
+          <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 30, zIndex: 2, background: 'linear-gradient(270deg, rgba(255,255,255,0.96), transparent)', pointerEvents: 'none' }} />
+        )}
+
+        <div
+          ref={scrollRef}
+          style={{
+            display: 'flex',
+            gap: 12,
+            overflowX: 'auto',
+            overflowY: 'visible',
+            paddingBottom: 8,
+            paddingTop: 4,
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch',
+            scrollSnapType: 'x mandatory',
+          }}
+        >
+          {agregados.map((ag) => (
+            <motion.div
+              key={ag.id}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                flexShrink: 0,
+                width: 158,
+                borderRadius: 18,
+                background: ORANGE_LIGHT,
+                border: '1.5px solid #fdc89a',
+                boxShadow: '0 4px 18px rgba(247,103,7,0.12)',
+                overflow: 'visible',
+                display: 'flex',
+                flexDirection: 'column',
+                scrollSnapAlign: 'start',
+                position: 'relative',
+              }}
+            >
+              {/* Puntos decorativos negros — esquina superior derecha */}
+              <DiamondGrid
+                color="#000000"
+                rows={3} cols={3} gap={8} size={6}
+                style={{
+                  position: 'absolute',
+                  top: -6,
+                  right: -6,
+                  opacity: 0.52,
+                  pointerEvents: 'none',
+                  zIndex: 0,
+                }}
+              />
+
+              {/* Zona imagen con borde redondeado y borde blanco interno */}
+              <div style={{
+                margin: 12, marginBottom: 0,
+                borderRadius: 13,
+                border: '2.5px solid white',
+                overflow: 'hidden',
+                position: 'relative',
+                background: 'white',
+                boxShadow: '0 3px 12px rgba(0,0,0,0.1)',
+                height: 130,
+                cursor: ag.photo ? 'zoom-in' : 'default',
+                zIndex: 1,
+                flexShrink: 0,
+              }} onClick={() => { if (ag.photo) onImageClick(ag.photo); }}>
+                {ag.photo ? (
+                  <>
+                    <img
+                      src={ag.photo}
+                      alt={ag.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                    {/* Lupa — esquina inferior derecha */}
+                    <div style={{
+                      position: 'absolute', bottom: 6, right: 6,
+                      width: 20, height: 20, borderRadius: 6,
+                      background: 'rgba(0,0,0,0.38)', backdropFilter: 'blur(6px)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      pointerEvents: 'none',
+                    }}>
+                      <IconZoomIn size={10} color="rgba(255,255,255,0.92)" strokeWidth={2} />
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff4e6' }}>
+                    <IconGift size={36} color={ORANGE + '66'} />
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div style={{ padding: '10px 12px 14px', display: 'flex', flexDirection: 'column', gap: 6, zIndex: 1 }}>
+
+                {/* Badge label */}
+                {ag.tag && (
+                  <div style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 4, background: ORANGE, borderRadius: 20, padding: '2px 9px' }}>
+                    <IconSparkles size={8} color="white" />
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.5rem', fontWeight: 800, color: 'white', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                      {ag.tag}
+                    </span>
+                  </div>
+                )}
+
+                {/* Título */}
+                <div style={{ fontFamily: '"Playfair Display", serif', fontSize: '0.82rem', fontWeight: 700, color: '#111', lineHeight: 1.3 }}>
+                  {ag.title}
+                </div>
+
+                {/* Precio */}
+                {ag.price ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4, background: ORANGE, borderRadius: 12, padding: '7px 16px', alignSelf: 'flex-start', boxShadow: '0 3px 10px rgba(247,103,7,0.35)' }}>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.85rem', fontWeight: 800, color: 'rgba(255,255,255,0.9)' }}>+S/.</span>
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '1.25rem', fontWeight: 900, color: 'white', letterSpacing: '-0.5px' }}>{ag.price}</span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#e6f9ee', borderRadius: 8, padding: '3px 9px', alignSelf: 'flex-start' }}>
+                    <IconCheck size={9} color="#1a7c3e" strokeWidth={3} />
+                    <span style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.58rem', fontWeight: 700, color: '#1a7c3e' }}>Incluido</span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
