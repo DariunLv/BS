@@ -1532,7 +1532,7 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
     producto: '', fecha: '', precio: '', foto: '', socio: '', medioEntrega: 'Contra entrega',
     categoryId: '', productId: '', splitYefer: '', splitFrank: '',
   });
-  const [selectedTalla, setSelectedTalla] = useState('');
+  const [selectedTalla, setSelectedTalla] = useState({ varon: '', dama: '' });
   const [productInv, setProductInv] = useState(null); // inventario del producto seleccionado
 
   React.useEffect(() => {
@@ -1550,13 +1550,13 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
       const today = localToday();
       setForm({ producto: '', fecha: today, precio: '', foto: '', socio: '', medioEntrega: 'Contra entrega', categoryId: '', productId: '', splitYefer: '', splitFrank: '', costosAgregados: '', detalleCostos: '', fuenteCostos: '', rebaja: '', montoRebaja: '' });
     }
-    setSelectedTalla('');
+    setSelectedTalla({ varon: '', dama: '' });
     setProductInv(null);
   }, [sale, open]);
 
   // Cargar inventario del producto seleccionado
   React.useEffect(() => {
-    if (!form.productId) { setProductInv(null); setSelectedTalla(''); return; }
+    if (!form.productId) { setProductInv(null); setSelectedTalla({ varon: '', dama: '' }); return; }
     getProductInventory(form.productId).then(inv => setProductInv(inv));
   }, [form.productId]);
 
@@ -1610,23 +1610,25 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
       updateSale(sale.id, form);
       notifications.show({ title: 'Actualizado', message: 'Venta actualizada', color: 'green' });
     } else {
-      addSale({ id: generateId(), ...form, tallaSold: selectedTalla || null });
-      // Descontar del inventario y auto-sincronizar soldOut si llega a 0
-      if (form.productId) {
-        deductInventory(form.productId, selectedTalla || null).then(() => {
+      // Construir lista de tallas vendidas (puede ser una de varón, una de dama, ambas, o ninguna)
+      const tallasVendidas = [selectedTalla.varon, selectedTalla.dama].filter(Boolean);
+      addSale({ id: generateId(), ...form, tallaSold: tallasVendidas.length === 1 ? tallasVendidas[0] : tallasVendidas.length > 1 ? tallasVendidas : null });
+      // Descontar cada talla del inventario
+      if (form.productId && tallasVendidas.length > 0) {
+        Promise.all(tallasVendidas.map(t => deductInventory(form.productId, t))).then(() => {
           checkAndSyncSoldOut(form.productId).then(isOut => {
             if (isOut) {
-              // Auto-marcar como agotado en el catálogo
               import('../utils/store').then(({ toggleSoldOut, loadStore }) => {
                 const data = loadStore();
                 const prod = (data.products || []).find(p => p.id === form.productId);
-                if (prod && !prod.soldOut) {
-                  toggleSoldOut(form.productId);
-                }
+                if (prod && !prod.soldOut) toggleSoldOut(form.productId);
               });
             }
           });
         });
+      } else if (form.productId && tallasVendidas.length === 0) {
+        // Sin talla específica — descontar del stock general
+        deductInventory(form.productId, null);
       }
       notifications.show({ title: 'Venta registrada', message: 'Stock descontado del inventario', color: 'green' });
     }
@@ -1690,13 +1692,13 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
                 <div style={{ marginBottom: tallasD.length > 0 ? 10 : 0 }}>
                   <Text size="xs" mb={6} style={{ fontFamily: '"Outfit",sans-serif', color: '#2c4a80', fontWeight: 600 }}>Varón</Text>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {tallasV.map(t => {
+                    {[...tallasV].sort((a,b) => parseFloat(a)-parseFloat(b) || String(a).localeCompare(String(b))).map(t => {
                       const key = `V-${t}`;
                       const stock = getSizeStock(productInv, key);
                       const out = stock === 0;
-                      const sel = selectedTalla === key;
+                      const sel = selectedTalla.varon === key;
                       return (
-                        <button key={key} onClick={() => setSelectedTalla(sel ? '' : key)}
+                        <button key={key} onClick={() => !out && setSelectedTalla(p => ({ ...p, varon: sel ? '' : key }))}
                           style={{
                             fontFamily: '"Outfit",sans-serif', fontSize: '0.78rem', fontWeight: 600,
                             padding: out ? '5px 12px' : '6px 14px', borderRadius: 10,
@@ -1718,13 +1720,13 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
                 <div>
                   <Text size="xs" mb={6} mt={tallasV.length > 0 ? 8 : 0} style={{ fontFamily: '"Outfit",sans-serif', color: '#c2255c', fontWeight: 600 }}>Dama</Text>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {tallasD.map(t => {
+                    {[...tallasD].sort((a,b) => parseFloat(a)-parseFloat(b) || String(a).localeCompare(String(b))).map(t => {
                       const key = `D-${t}`;
                       const stock = getSizeStock(productInv, key);
                       const out = stock === 0;
-                      const sel = selectedTalla === key;
+                      const sel = selectedTalla.dama === key;
                       return (
-                        <button key={key} onClick={() => setSelectedTalla(sel ? '' : key)}
+                        <button key={key} onClick={() => !out && setSelectedTalla(p => ({ ...p, dama: sel ? '' : key }))}
                           style={{
                             fontFamily: '"Outfit",sans-serif', fontSize: '0.78rem', fontWeight: 600,
                             padding: out ? '5px 12px' : '6px 14px', borderRadius: 10,
@@ -1742,13 +1744,26 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
                   </div>
                 </div>
               )}
-              {selectedTalla && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                  <IconCheck size={13} color={COLORS.orange} />
-                  <Text size="xs" style={{ fontFamily: '"Outfit",sans-serif', color: COLORS.orange, fontWeight: 600 }}>
-                    Talla seleccionada: {selectedTalla.startsWith('V-') ? `Varón ${selectedTalla.slice(2)}` : `Dama ${selectedTalla.slice(2)}`}
-                    {' — '}se descontará 1 unidad del inventario al registrar
-                  </Text>
+              {(selectedTalla.varon || selectedTalla.dama) && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 8 }}>
+                  <IconCheck size={13} color={COLORS.orange} style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div>
+                    {selectedTalla.varon && (
+                      <Text size="xs" style={{ fontFamily: '"Outfit",sans-serif', color: '#2c4a80', fontWeight: 600 }}>
+                        Varón talla {selectedTalla.varon.slice(2)} — se descontará 1 unidad
+                      </Text>
+                    )}
+                    {selectedTalla.dama && (
+                      <Text size="xs" style={{ fontFamily: '"Outfit",sans-serif', color: '#c2255c', fontWeight: 600 }}>
+                        Dama talla {selectedTalla.dama.slice(2)} — se descontará 1 unidad
+                      </Text>
+                    )}
+                    {selectedTalla.varon && selectedTalla.dama && (
+                      <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.6rem', marginTop: 2 }}>
+                        Se descontarán 2 unidades en total (1 varón + 1 dama)
+                      </Text>
+                    )}
+                  </div>
                 </div>
               )}
             </Card>
