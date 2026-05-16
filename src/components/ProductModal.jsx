@@ -10,9 +10,10 @@ import {
   IconCategory, IconZoomIn, IconGift, IconFileText, IconAlignLeft, IconCheck,
 } from '@tabler/icons-react';
 import { COLORS } from '../utils/theme';
-import { getWhatsappNumber, trackProductView } from '../utils/store';
+import { getWhatsappNumber, trackProductView, getRingSizeGuide } from '../utils/store';
 import { getProductInventory, isSizeOutOfStock, getSizeStock } from '../utils/inventory';
 import useImages from '../hooks/useImages';
+import RingSizeGuide from './RingSizeGuide';
 
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
@@ -861,6 +862,11 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                 {product.description}
               </p>
             </motion.div>
+          )}
+
+          {/* ====== Guía de tallas (SOLO anillos) — debajo de la descripción ====== */}
+          {isAnillos && hasTallas && (
+            <RingSizeGuide guide={(storeData?.ringSizeGuide) || getRingSizeGuide()} />
           )}
 
           {/* ====== CONTENIDOS DEL PACK ====== */}

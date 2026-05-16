@@ -113,6 +113,7 @@ function _taskKey(t) {
   if (t.type === 'productMeta')    return `pm:${t.payload?.product?.id}`;
   if (t.type === 'productImages')  return `pi:${t.payload?.productId}`;
   if (t.type === 'deleteProduct')  return `dp:${t.payload?.productId}`;
+  if (t.type === 'ringSizeGuide')  return 'ringSizeGuide';
   return `unk:${Math.random()}`;
 }
 
@@ -162,6 +163,12 @@ async function _runTask(task) {
       const pid = task.payload?.productId;
       if (!pid) return true;
       await fb.deleteProductFromFirebase(pid);
+      return true;
+    }
+    case 'ringSizeGuide': {
+      const guide = task.payload?.guide;
+      if (!guide) return true;
+      await fb.saveRingSizeGuideToFirebase(guide);
       return true;
     }
     default:
@@ -268,6 +275,10 @@ export function enqueueProductImages(productId, images) {
 
 export function enqueueDeleteProduct(productId) {
   _enqueue({ type: 'deleteProduct', payload: { productId }, attempts: 0 });
+}
+
+export function enqueueRingSizeGuide(guide) {
+  _enqueue({ type: 'ringSizeGuide', payload: { guide }, attempts: 0 });
 }
 
 /**

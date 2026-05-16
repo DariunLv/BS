@@ -11,6 +11,7 @@ import {
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
   IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort, IconBox, IconRefresh, IconGift,
+  IconRulerMeasure, IconPlayerPlay, IconVideo,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -23,6 +24,7 @@ import {
   getProductViews, getPriceHistory,
   getAgregados, addAgregado, updateAgregado, deleteAgregado, reorderAgregados,
   getRingBoxes, updateRingBoxes,
+  getRingSizeGuide, updateRingSizeGuide,
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
 import AccountingPanel from '../components/AccountingPanel';
@@ -459,6 +461,9 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
               </Button>
             </div>
           </div>
+
+          {/* ====== GUÍA DE TALLAS DE ANILLOS ====== */}
+          <RingSizeGuideAdmin onRefresh={onRefresh} />
         </Tabs.Panel>
 
         <Tabs.Panel value="accounting" pt="md">
@@ -1837,4 +1842,222 @@ function PasswordModal({ open, onClose }) {
       </div>
     </Modal>
   );
+}
+
+/* ============================================================
+   ADMIN: Guía de Tallas para Anillos (video + foto + texto)
+   ============================================================ */
+function RingSizeGuideAdmin({ onRefresh }) {
+  const [guide, setGuide] = useState(() => getRingSizeGuide());
+  const [videoUrl, setVideoUrl] = useState(guide.videoUrl || '');
+  const [text, setText] = useState(guide.text || '');
+  const [savingPhoto, setSavingPhoto] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Detectar tipo de URL en vivo para mostrar preview
+  const videoPreview = useMemo(() => {
+    const url = (videoUrl || '').trim();
+    if (!url) return null;
+    const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+    if (yt) return { type: 'YouTube', label: '🎬 YouTube detectado' };
+    const vm = url.match(/vimeo\.com\/(\d+)/);
+    if (vm) return { type: 'Vimeo', label: '🎬 Vimeo detectado' };
+    const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (gd) return { type: 'Drive', label: '🎬 Google Drive detectado' };
+    if (/\.(mp4|webm|mov|m4v)$/i.test(url)) return { type: 'Video', label: '🎬 Video directo detectado' };
+    return { type: 'desconocido', label: '⚠ URL no reconocida — verifica que sea un video' };
+  }, [videoUrl]);
+
+  const handleSaveVideoUrl = () => {
+    const next = { ...guide, videoUrl: videoUrl.trim() };
+    updateRingSizeGuide(next);
+    setGuide(next);
+    onRefresh && onRefresh();
+    notifications.show({ title: 'Guardado', message: 'Video actualizado', color: 'green' });
+  };
+
+  const handleSaveText = () => {
+    const next = { ...guide, text: text.trim() || '¿No sabes tu talla? Mira este video para descubrirlo' };
+    updateRingSizeGuide(next);
+    setGuide(next);
+    onRefresh && onRefresh();
+    notifications.show({ title: 'Guardado', message: 'Mensaje actualizado', color: 'green' });
+  };
+
+  const handlePhotoUpload = async (file) => {
+    if (!file) return;
+    setSavingPhoto(true);
+    try {
+      const b64 = await uploadImage(file);
+      const next = { ...guide, photo: b64 };
+      updateRingSizeGuide(next);
+      setGuide(next);
+      onRefresh && onRefresh();
+      notifications.show({ title: 'Foto subida', message: 'Foto de guía actualizada', color: 'green' });
+    } catch (e) {
+      notifications.show({ title: 'Error', message: 'No se pudo subir la foto', color: 'red' });
+    } finally {
+      setSavingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    const next = { ...guide, photo: '' };
+    updateRingSizeGuide(next);
+    setGuide(next);
+    onRefresh && onRefresh();
+    notifications.show({ title: 'Eliminada', message: 'Foto removida', color: 'orange' });
+  };
+
+  const handleClearVideo = () => {
+    const next = { ...guide, videoUrl: '' };
+    updateRingSizeGuide(next);
+    setGuide(next);
+    setVideoUrl('');
+    onRefresh && onRefresh();
+    notifications.show({ title: 'Eliminado', message: 'Video removido', color: 'orange' });
+  };
+
+  return (
+    <div style={{ borderTop: `1px solid ${COLORS.borderLight}`, paddingTop: 24, marginTop: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <IconRulerMeasure size={20} color={COLORS.orange} />
+        <Text size="lg" fw={600} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>
+          Guía de Tallas — Anillos
+        </Text>
+      </div>
+      <Text size="sm" c="dimmed" mb={16} style={{ fontFamily: '"Outfit", sans-serif' }}>
+        Aparece debajo de la descripción en TODOS los anillos con tallas. Solo se muestra si hay video o foto configurados.
+      </Text>
+
+      {/* Mensaje personalizable */}
+      <Card padding="md" radius="md" withBorder style={{ marginBottom: 14, background: COLORS.offWhite }}>
+        <Text size="sm" fw={600} mb={6} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy }}>
+          Mensaje que verán los clientes
+        </Text>
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.currentTarget.value)}
+          placeholder="¿No sabes tu talla? Mira este video para descubrirlo"
+          minRows={2}
+          radius="md"
+          autosize
+          maxRows={4}
+        />
+        <Button onClick={handleSaveText} radius="md" size="xs" mt={8}
+          style={{ background: COLORS.navy }}>
+          Guardar mensaje
+        </Button>
+      </Card>
+
+      {/* Video URL */}
+      <Card padding="md" radius="md" withBorder style={{ marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <IconVideo size={18} color={COLORS.orange} />
+          <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy }}>
+            Video (URL)
+          </Text>
+        </div>
+        <Text size="xs" c="dimmed" mb={10} style={{ fontFamily: '"Outfit", sans-serif' }}>
+          Pega un link de YouTube, Vimeo, Google Drive público, o un .mp4 directo.
+        </Text>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <TextInput
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.currentTarget.value)}
+            placeholder="https://youtube.com/watch?v=..."
+            radius="md"
+            style={{ flex: '1 1 240px' }}
+            leftSection={<IconLink size={14} />}
+          />
+          <Button onClick={handleSaveVideoUrl} radius="md"
+            style={{ background: COLORS.orange }}>
+            Guardar
+          </Button>
+        </div>
+        {videoPreview && (
+          <Text size="xs" mt={6}
+            style={{ fontFamily: '"Outfit", sans-serif',
+              color: videoPreview.type === 'desconocido' ? '#c92a2a' : '#2d8a2d' }}>
+            {videoPreview.label}
+          </Text>
+        )}
+        {guide.videoUrl && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Badge color="green" variant="light" size="sm" leftSection={<IconCheck size={10} />}>
+              Video configurado
+            </Badge>
+            <Button size="xs" variant="subtle" color="orange"
+              leftSection={<IconPlayerPlay size={12} />}
+              onClick={() => setPreviewOpen(true)}>
+              Previsualizar
+            </Button>
+            <Button size="xs" variant="subtle" color="red"
+              leftSection={<IconTrash size={12} />}
+              onClick={handleClearVideo}>
+              Quitar
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      {/* Foto */}
+      <Card padding="md" radius="md" withBorder>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <IconPhoto size={18} color={COLORS.orange} />
+          <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy }}>
+            Foto de la guía
+          </Text>
+        </div>
+        <Text size="xs" c="dimmed" mb={10} style={{ fontFamily: '"Outfit", sans-serif' }}>
+          Por ejemplo: una imagen mostrando cómo medir el dedo con una tira de papel.
+        </Text>
+        {guide.photo && (
+          <div style={{ position: 'relative', width: 200, marginBottom: 12 }}>
+            <img src={guide.photo} alt="Guía de tallas" style={{ width: '100%', borderRadius: 12, border: `1px solid ${COLORS.borderLight}` }} />
+            <ActionIcon size="sm" variant="filled" color="red" radius="xl"
+              style={{ position: 'absolute', top: -6, right: -6 }}
+              onClick={handleRemovePhoto}><IconX size={12} /></ActionIcon>
+          </div>
+        )}
+        <FileInput accept="image/*"
+          placeholder={savingPhoto ? "Subiendo..." : (guide.photo ? "Cambiar foto" : "Subir foto de guía")}
+          leftSection={<IconUpload size={16} />}
+          onChange={handlePhotoUpload}
+          radius="md" clearable
+          disabled={savingPhoto} />
+      </Card>
+
+      {/* Preview modal */}
+      <Modal opened={previewOpen} onClose={() => setPreviewOpen(false)}
+        title="Previsualización del video" size="lg" centered radius="lg"
+        styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600 } }}>
+        <VideoPreview url={guide.videoUrl} />
+      </Modal>
+    </div>
+  );
+}
+
+function VideoPreview({ url }) {
+  const info = useMemo(() => {
+    if (!url) return null;
+    const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+    if (yt) return { type: 'iframe', embedUrl: `https://www.youtube.com/embed/${yt[1]}` };
+    const vm = url.match(/vimeo\.com\/(\d+)/);
+    if (vm) return { type: 'iframe', embedUrl: `https://player.vimeo.com/video/${vm[1]}` };
+    const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (gd) return { type: 'iframe', embedUrl: `https://drive.google.com/file/d/${gd[1]}/preview` };
+    return { type: 'video', embedUrl: url };
+  }, [url]);
+  if (!info) return <Text c="dimmed">Sin video configurado</Text>;
+  if (info.type === 'iframe') {
+    return (
+      <div style={{ position: 'relative', paddingTop: '56.25%', borderRadius: 12, overflow: 'hidden', background: '#000' }}>
+        <iframe src={info.embedUrl} title="Preview" frameBorder="0"
+          allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowFullScreen
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
+      </div>
+    );
+  }
+  return <video src={info.embedUrl} controls style={{ width: '100%', borderRadius: 12, background: '#000' }} />;
 }

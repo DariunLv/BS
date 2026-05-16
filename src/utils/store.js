@@ -12,6 +12,7 @@ import {
   enqueueProductMeta,
   enqueueProductImages,
   enqueueDeleteProduct,
+  enqueueRingSizeGuide,
 } from './saveQueue';
 
 const STORAGE_KEY = 'benito_store_data';
@@ -54,6 +55,11 @@ const DEFAULT_DATA = {
   ringBoxes: {
     cheap:   { title: 'Caja de anillo', photo: '', label: 'Incluida' },
     premium: { title: 'Caja Premium',   photo: '', label: 'Incluida' },
+  },
+  ringSizeGuide: {
+    videoUrl: '',
+    photo: '',
+    text: '¿No sabes tu talla? Mira este video para descubrirlo',
   },
 };
 
@@ -134,6 +140,11 @@ export function setCacheData(data) {
   if (!data.ringBoxes) data.ringBoxes = {
     cheap:   { title: 'Caja de anillo', photo: '', label: 'Incluida' },
     premium: { title: 'Caja Premium',   photo: '', label: 'Incluida' },
+  };
+  if (!data.ringSizeGuide) data.ringSizeGuide = {
+    videoUrl: '',
+    photo: '',
+    text: '¿No sabes tu talla? Mira este video para descubrirlo',
   };
 
   // Asegurar que todas las categorías por defecto existen (merge sin duplicar)
@@ -692,6 +703,34 @@ export function updateRingBoxes(ringBoxes) {
   const data = loadStore();
   data.ringBoxes = ringBoxes;
   saveStore(data);
+  return data;
+}
+
+/* ====== GUÍA DE TALLAS DE ANILLOS (video + foto + texto) ====== */
+export function getRingSizeGuide() {
+  const data = loadStore();
+  return data.ringSizeGuide || {
+    videoUrl: '',
+    photo: '',
+    text: '¿No sabes tu talla? Mira este video para descubrirlo',
+  };
+}
+
+export function updateRingSizeGuide(guide) {
+  const data = loadStore();
+  const next = {
+    videoUrl: guide?.videoUrl || '',
+    photo: guide?.photo || '',
+    text: guide?.text || '¿No sabes tu talla? Mira este video para descubrirlo',
+  };
+  data.ringSizeGuide = next;
+  data._lastModified = Date.now();
+  cacheData = data;
+  _notify();
+  // Actualizar caché local inmediato
+  try { localStorage.setItem('benito_cache_v2', JSON.stringify(data)); } catch {}
+  // Encolar guardado a Firebase EN SU PROPIO DOC (no infla meta)
+  enqueueRingSizeGuide(next);
   return data;
 }
 

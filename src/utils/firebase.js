@@ -28,6 +28,7 @@ const db = getFirestore(app);
 // Colecciones (separadas para no superar el limite de 1MB por documento)
 const META_REF       = doc(db, 'store', 'meta');
 const OLD_DATA_REF   = doc(db, 'store', 'data');
+const RING_GUIDE_REF = doc(db, 'store', 'ringSizeGuide'); // guía de tallas (puede tener foto pesada)
 const PROD_COL       = collection(db, 'products');
 const IMG_COL        = collection(db, 'productImages');
 const CLI_PHOTOS_COL = collection(db, 'clientPhotos');
@@ -168,12 +169,13 @@ export async function loadFromFirebase() {
 
     if (!meta) return null;
 
-    const [prodSnap, cliPhotoSnap, salesSnap, investSnap, pendingSnap] = await Promise.all([
+    const [prodSnap, cliPhotoSnap, salesSnap, investSnap, pendingSnap, ringGuideSnap] = await Promise.all([
       getDocs(PROD_COL),
       getDocs(CLI_PHOTOS_COL),
       getDocs(SALES_COL),
       getDocs(INVEST_COL),
       getDocs(PENDING_COL),
+      getDoc(RING_GUIDE_REF),
     ]);
 
     const products = [];
@@ -191,8 +193,14 @@ export async function loadFromFirebase() {
     const investments = [];  investSnap.forEach(d => investments.push(d.data()));
     const pendingSales = []; pendingSnap.forEach(d => pendingSales.push(d.data()));
 
+    // Guía de tallas: en su propio doc para que la foto base64 no infle meta
+    const ringSizeGuide = ringGuideSnap.exists()
+      ? ringGuideSnap.data()
+      : (meta.ringSizeGuide || null);
+
     return {
       ...meta,
+      ringSizeGuide: ringSizeGuide || undefined,
       frecuentClients: frecuentClientsWithPhotos,
       sales: sales.length > 0 ? sales : (meta.sales || []),
       investments: investments.length > 0 ? investments : (meta.investments || []),
@@ -215,6 +223,8 @@ export async function saveMetaToFirebase(data) {
   const salesRaw           = meta.sales        || [];
   const investmentsRaw     = meta.investments  || [];
   const pendingSalesRaw    = meta.pendingSales || [];
+  // Guía de tallas → va a su propio doc (la foto puede pesar 300KB)
+  const ringSizeGuideRaw   = meta.ringSizeGuide || null;
 
   const metaToSave = sanitize({
     ...meta,
@@ -222,17 +232,23 @@ export async function saveMetaToFirebase(data) {
     sales: [],
     investments: [],
     pendingSales: [],
+    ringSizeGuide: undefined, // se guarda separado, no en meta
   });
 
   // 1. Metadatos centrales (con retry)
   await withRetry(() => setDoc(META_REF, metaToSave));
 
-  // 2. Colecciones grandes en paralelo
+  // 2. Colecciones grandes en paralelo (cada una con su retry)
+  //    + Guía de tallas en su propio doc (paralelo también)
   await Promise.all([
     withRetry(() => syncCollection(CLI_PHOTOS_COL, frecuentClientsRaw, c => ({ foto: c.foto || '' }))),
     withRetry(() => syncCollection(SALES_COL,       salesRaw,       s => s)),
     withRetry(() => syncCollection(INVEST_COL,      investmentsRaw, i => i)),
     withRetry(() => syncCollection(PENDING_COL,     pendingSalesRaw, p => p)),
+    // ringSizeGuide: solo guardar si tiene contenido; si todo está vacío, no escribir
+    ringSizeGuideRaw && (ringSizeGuideRaw.videoUrl || ringSizeGuideRaw.photo || ringSizeGuideRaw.text)
+      ? withRetry(() => setDoc(RING_GUIDE_REF, sanitize(ringSizeGuideRaw)))
+      : Promise.resolve(),
   ]);
 }
 
@@ -273,6 +289,18 @@ export async function saveToFirebase(data) {
 /* ============================================================
    OPERACIONES INDIVIDUALES — con retry automático
    ============================================================ */
+
+/** Guarda SOLO la guía de tallas en su propio doc (rápido, no toca meta). */
+export async function saveRingSizeGuideToFirebase(guide) {
+  if (!guide) return;
+  // Si todo está vacío, borrar el doc para no ocupar espacio
+  if (!guide.videoUrl && !guide.photo && !guide.text) {
+    try { await deleteDoc(RING_GUIDE_REF); } catch {}
+    return;
+  }
+  await withRetry(() => setDoc(RING_GUIDE_REF, sanitize(guide)));
+}
+
 export async function saveProductToFirebase(product) {
   if (!product?.id) return;
   const { images, ...productWithoutImages } = product;

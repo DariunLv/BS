@@ -33,7 +33,7 @@ import {
 } from '../utils/store';
 import { COLORS } from '../utils/theme';
 import StatsPanel from './StatsPanel';
-import { deductInventory, getProductInventory, getSizeStock, checkAndSyncSoldOut } from '../utils/inventory';
+import { deductInventory, getProductInventory, getSizeStock, checkAndSyncSoldOut, registerSaleAtomic, deleteSaleAtomic } from '../utils/inventory';
 
 const SOCIOS_OPTIONS = [
   { value: 'Yefer', label: 'Yefer' },
@@ -395,7 +395,50 @@ export default function AccountingPanel({ storeData, onRefresh }) {
           filterSocio={filterSocio} setFilterSocio={setFilterSocio}
           onAdd={() => setSaleModal({ open: true, sale: null })}
           onEdit={(sale) => setSaleModal({ open: true, sale })}
-          onDelete={(id) => { deleteSale(id); onRefresh(); notifications.show({ title: 'Eliminado', message: 'Venta eliminada', color: 'red' }); }}
+          onDelete={(id) => {
+            // Eliminación atómica: borra la venta Y repone el inventario en
+            // una sola transacción. Antes: solo borraba la venta, el stock
+            // quedaba mal porque ya se había descontado al registrarla.
+            const v = filteredSales.find(s => s.id === id);
+            const tallasArr = Array.isArray(v?.tallaSold)
+              ? v.tallaSold
+              : (v?.tallaSold ? [v.tallaSold] : []);
+            notifications.show({
+              id: 'sale-del-' + id, title: 'Eliminando...', message: 'Reponiendo inventario',
+              color: 'blue', loading: true, autoClose: false,
+            });
+            deleteSaleAtomic(id, v?.productId, tallasArr)
+              .then(() => {
+                deleteSale(id);
+                // Si el producto estaba soldOut y ahora hay stock, des-marcar
+                if (v?.productId) {
+                  import('../utils/inventory').then(({ checkAndSyncSoldOut }) => {
+                    checkAndSyncSoldOut(v.productId).then(isStillOut => {
+                      if (!isStillOut) {
+                        import('../utils/store').then(({ loadStore, toggleSoldOut }) => {
+                          const data = loadStore();
+                          const prod = (data.products || []).find(p => p.id === v.productId);
+                          if (prod && prod.soldOut) toggleSoldOut(v.productId);
+                        });
+                      }
+                    });
+                  });
+                }
+                onRefresh();
+                notifications.update({
+                  id: 'sale-del-' + id, title: '✓ Venta eliminada', message: 'Inventario repuesto',
+                  color: 'green', loading: false, autoClose: 2500,
+                });
+              })
+              .catch(err => {
+                console.error('[deleteSale] Error:', err);
+                notifications.update({
+                  id: 'sale-del-' + id, title: '✗ No se pudo eliminar',
+                  message: 'Verifica tu conexión e intenta de nuevo.',
+                  color: 'red', loading: false, autoClose: 7000,
+                });
+              });
+          }}
         />
       )}
       {subTab === 'inversiones' && (
@@ -1609,30 +1652,67 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
     if (sale) {
       updateSale(sale.id, form);
       notifications.show({ title: 'Actualizado', message: 'Venta actualizada', color: 'green' });
+      onSave();
     } else {
       // Construir lista de tallas vendidas (puede ser una de varón, una de dama, ambas, o ninguna)
       const tallasVendidas = [selectedTalla.varon, selectedTalla.dama].filter(Boolean);
-      addSale({ id: generateId(), ...form, tallaSold: tallasVendidas.length === 1 ? tallasVendidas[0] : tallasVendidas.length > 1 ? tallasVendidas : null });
-      // Descontar cada talla del inventario
-      if (form.productId && tallasVendidas.length > 0) {
-        Promise.all(tallasVendidas.map(t => deductInventory(form.productId, t))).then(() => {
-          checkAndSyncSoldOut(form.productId).then(isOut => {
-            if (isOut) {
-              import('../utils/store').then(({ toggleSoldOut, loadStore }) => {
-                const data = loadStore();
-                const prod = (data.products || []).find(p => p.id === form.productId);
-                if (prod && !prod.soldOut) toggleSoldOut(form.productId);
-              });
-            }
+      const saleId = generateId();
+      const saleData = {
+        id: saleId,
+        ...form,
+        tallaSold: tallasVendidas.length === 1 ? tallasVendidas[0]
+                 : tallasVendidas.length > 1 ? tallasVendidas
+                 : null,
+      };
+
+      // ─────────────────────────────────────────────────────────────────
+      // OPERACIÓN ATÓMICA: venta + descuento + soldOut en UNA transacción
+      // Si falla, NADA se escribe (antes: a veces no guardaba la venta
+      // pero igual descontaba el stock — eso ya NO puede pasar).
+      // ─────────────────────────────────────────────────────────────────
+      notifications.show({
+        id: 'sale-saving-' + saleId,
+        title: 'Guardando venta...',
+        message: 'Registrando y actualizando inventario',
+        color: 'blue',
+        loading: true,
+        autoClose: false,
+      });
+
+      registerSaleAtomic(saleData, form.productId, tallasVendidas)
+        .then(({ isOut, deducted }) => {
+          // Éxito confirmado por Firebase → ahora SÍ sincronizar el cache local
+          addSale(saleData);
+          // Si el producto quedó agotado, sincronizar el flag soldOut local
+          if (isOut && form.productId) {
+            import('../utils/store').then(({ toggleSoldOut, loadStore }) => {
+              const data = loadStore();
+              const prod = (data.products || []).find(p => p.id === form.productId);
+              if (prod && !prod.soldOut) toggleSoldOut(form.productId);
+            });
+          }
+          notifications.update({
+            id: 'sale-saving-' + saleId,
+            title: '✓ Venta registrada',
+            message: deducted ? 'Stock descontado correctamente' : 'Venta guardada',
+            color: 'green',
+            loading: false,
+            autoClose: 2500,
+          });
+          onSave();
+        })
+        .catch((err) => {
+          console.error('[registerSale] Error:', err);
+          notifications.update({
+            id: 'sale-saving-' + saleId,
+            title: '✗ No se pudo guardar la venta',
+            message: 'No se descontó el inventario. Verifica tu conexión e intenta de nuevo.',
+            color: 'red',
+            loading: false,
+            autoClose: 7000,
           });
         });
-      } else if (form.productId && tallasVendidas.length === 0) {
-        // Sin talla específica — descontar del stock general
-        deductInventory(form.productId, null);
-      }
-      notifications.show({ title: 'Venta registrada', message: 'Stock descontado del inventario', color: 'green' });
     }
-    onSave();
   };
 
   return (
