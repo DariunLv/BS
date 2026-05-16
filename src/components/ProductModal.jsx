@@ -114,8 +114,28 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
   const tallasLegacySorted = sortTallas(tallas);
   const isAnillos = product.categoryId?.includes('anillo');
   const isPack = product.categoryId?.includes('pack');
-  const hasTallas = isAnillos && (tallas.length > 0 || tallasVaron.length > 0 || tallasDama.length > 0);
   const hasSpecs = product.material || (product.platingType && product.plating) || product.tipoPiedra || product.acabado;
+
+  // ── Detección AMPLIA de productos tipo anillo (incluye "A medida",
+  //    "Personalizados", "Anillos a medida", etc.) ──
+  //    Se considera tipo-anillo si:
+  //    a) la categoría incluye "anillo", "ring", "medida", "talla", o
+  //    b) tiene tallas Varón o Dama (estructura típica de anillo)
+  const catIdLower = (product.categoryId || '').toLowerCase();
+  const looksLikeRing =
+    catIdLower.includes('anillo')   ||
+    catIdLower.includes('medida')   ||
+    catIdLower.includes('amedida')  ||
+    catIdLower.includes('a-medida') ||
+    catIdLower.includes('talla')    ||
+    catIdLower.includes('ring')     ||
+    tallasVaron.length > 0          ||
+    tallasDama.length > 0;
+  const hasAnyTalla = (tallas.length > 0 || tallasVaron.length > 0 || tallasDama.length > 0);
+  // hasTallas: cuándo mostrar el bloque de selección de tallas (V/D/legacy)
+  const hasTallas = looksLikeRing && hasAnyTalla;
+  // shouldShowRingGuide: cuándo mostrar la guía "¿No sabes tu talla?"
+  const shouldShowRingGuide = looksLikeRing && hasAnyTalla;
 
   const allRings = storeData
     ? (storeData.products || []).filter(p => p.categoryId?.includes('anillo')).sort((a,b) => (a.sortOrder??9999)-(b.sortOrder??9999))
@@ -864,8 +884,8 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
             </motion.div>
           )}
 
-          {/* ====== Guía de tallas (SOLO anillos) — debajo de la descripción ====== */}
-          {isAnillos && hasTallas && (
+          {/* ====== Guía de tallas (anillos o categorías con tallas) — debajo de la descripción ====== */}
+          {shouldShowRingGuide && (
             <RingSizeGuide guide={(storeData?.ringSizeGuide) || getRingSizeGuide()} />
           )}
 
