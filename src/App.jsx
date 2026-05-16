@@ -19,6 +19,8 @@ import BottomNav from './components/BottomNav';
 import PageTransition from './components/PageTransition';
 import { loadStore, setCacheData, subscribeToStore } from './utils/store';
 import { loadFromFirebase } from './utils/firebase';
+import { flushSaveQueue } from './utils/saveQueue';
+import SaveIndicator from './components/SaveIndicator';
 import AnimatedBackground from './components/AnimatedBackground';
 
 export default function App() {
@@ -137,9 +139,12 @@ export default function App() {
   }, [navigate]);
 
   const handleLogout = useCallback(() => {
-    setIsAdmin(false);
-    refreshData();
-    navigate('/');
+    // IMPORTANTE: forzar flush para no perder cambios pendientes al cerrar sesión
+    flushSaveQueue(5000).finally(() => {
+      setIsAdmin(false);
+      refreshData();
+      navigate('/');
+    });
   }, [navigate, refreshData]);
 
   const isAdminRoute = location.pathname.startsWith('/admin');
@@ -216,6 +221,8 @@ export default function App() {
           )}
 
           <AdminLogin open={showLogin} onClose={() => setShowLogin(false)} onSuccess={handleLoginSuccess} />
+          {/* Indicador de guardado: visible para admin en /admin (no molesta a clientes) */}
+          {isAdmin && isAdminRoute && <SaveIndicator visible={true} />}
         </div>
       </ClickSpark>
     </>
