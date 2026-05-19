@@ -29,12 +29,15 @@ const db = getFirestore(app);
 const META_REF       = doc(db, 'store', 'meta');
 const OLD_DATA_REF   = doc(db, 'store', 'data');
 const RING_GUIDE_REF = doc(db, 'store', 'ringSizeGuide'); // guía de tallas (puede tener foto pesada)
+const RING_BOXES_REF = doc(db, 'store', 'ringBoxes');     // cajas (cheap + premium con fotos)
 const PROD_COL       = collection(db, 'products');
 const IMG_COL        = collection(db, 'productImages');
 const CLI_PHOTOS_COL = collection(db, 'clientPhotos');
 const SALES_COL      = collection(db, 'sales');
 const INVEST_COL     = collection(db, 'investments');
 const PENDING_COL    = collection(db, 'pendingSales');
+const AG_IMG_COL     = collection(db, 'agregadoImages');   // fotos de agregados (separadas)
+const EX_IMG_COL     = collection(db, 'ringExtraImages');  // fotos de ringExtras (separadas)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -169,13 +172,19 @@ export async function loadFromFirebase() {
 
     if (!meta) return null;
 
-    const [prodSnap, cliPhotoSnap, salesSnap, investSnap, pendingSnap, ringGuideSnap] = await Promise.all([
+    const [
+      prodSnap, cliPhotoSnap, salesSnap, investSnap, pendingSnap,
+      ringGuideSnap, ringBoxesSnap, agImgSnap, exImgSnap,
+    ] = await Promise.all([
       getDocs(PROD_COL),
       getDocs(CLI_PHOTOS_COL),
       getDocs(SALES_COL),
       getDocs(INVEST_COL),
       getDocs(PENDING_COL),
       getDoc(RING_GUIDE_REF),
+      getDoc(RING_BOXES_REF),
+      getDocs(AG_IMG_COL),
+      getDocs(EX_IMG_COL),
     ]);
 
     const products = [];
@@ -193,14 +202,32 @@ export async function loadFromFirebase() {
     const investments = [];  investSnap.forEach(d => investments.push(d.data()));
     const pendingSales = []; pendingSnap.forEach(d => pendingSales.push(d.data()));
 
-    // Guía de tallas: en su propio doc para que la foto base64 no infle meta
+    // Guía de tallas y cajas: en sus propios docs (fotos pesadas)
     const ringSizeGuide = ringGuideSnap.exists()
       ? ringGuideSnap.data()
       : (meta.ringSizeGuide || null);
+    const ringBoxes = ringBoxesSnap.exists()
+      ? ringBoxesSnap.data()
+      : (meta.ringBoxes || null);
+
+    // Fotos de agregados y ringExtras: recombinar desde sus colecciones
+    const agPhotosMap = {};
+    agImgSnap.forEach(d => { agPhotosMap[d.id] = d.data().photo || ''; });
+    const agregadosWithPhotos = (meta.agregados || []).map(a => ({
+      ...a, photo: agPhotosMap[a.id] || a.photo || '',
+    }));
+    const exPhotosMap = {};
+    exImgSnap.forEach(d => { exPhotosMap[d.id] = d.data().photo || ''; });
+    const ringExtrasWithPhotos = (meta.ringExtras || []).map(x => ({
+      ...x, photo: exPhotosMap[x.id] || x.photo || '',
+    }));
 
     return {
       ...meta,
       ringSizeGuide: ringSizeGuide || undefined,
+      ringBoxes: ringBoxes || meta.ringBoxes || undefined,
+      agregados: agregadosWithPhotos,
+      ringExtras: ringExtrasWithPhotos,
       frecuentClients: frecuentClientsWithPhotos,
       sales: sales.length > 0 ? sales : (meta.sales || []),
       investments: investments.length > 0 ? investments : (meta.investments || []),
@@ -223,31 +250,49 @@ export async function saveMetaToFirebase(data) {
   const salesRaw           = meta.sales        || [];
   const investmentsRaw     = meta.investments  || [];
   const pendingSalesRaw    = meta.pendingSales || [];
-  // Guía de tallas → va a su propio doc (la foto puede pesar 300KB)
   const ringSizeGuideRaw   = meta.ringSizeGuide || null;
+
+  // Agregados y ringExtras: separar las fotos pesadas a sub-colecciones.
+  // En el doc meta solo va el metadato (id, title, tag, price, order) sin foto.
+  // Las fotos quedan en agregadoImages/{id} y ringExtraImages/{id}.
+  const agregadosRaw  = meta.agregados  || [];
+  const ringExtrasRaw = meta.ringExtras || [];
+
+  // ringBoxes con sus fotos → va a su propio doc store/ringBoxes
+  const ringBoxesRaw = meta.ringBoxes || null;
 
   const metaToSave = sanitize({
     ...meta,
     frecuentClients: frecuentClientsRaw.map(({ foto, ...rest }) => rest),
-    sales: [],
-    investments: [],
-    pendingSales: [],
-    ringSizeGuide: undefined, // se guarda separado, no en meta
+    agregados:  agregadosRaw.map(({ photo, ...rest }) => rest),   // sin foto
+    ringExtras: ringExtrasRaw.map(({ photo, ...rest }) => rest),  // sin foto
+    ringBoxes:  undefined,         // se guarda en su propio doc
+    ringSizeGuide: undefined,      // se guarda en su propio doc
+    sales: [], investments: [], pendingSales: [],
   });
 
-  // 1. Metadatos centrales (con retry)
+  // 1. Documento meta (debería ser pequeño ahora)
   await withRetry(() => setDoc(META_REF, metaToSave));
 
-  // 2. Colecciones grandes en paralelo (cada una con su retry)
-  //    + Guía de tallas en su propio doc (paralelo también)
+  // 2. Colecciones grandes en paralelo
   await Promise.all([
     withRetry(() => syncCollection(CLI_PHOTOS_COL, frecuentClientsRaw, c => ({ foto: c.foto || '' }))),
     withRetry(() => syncCollection(SALES_COL,       salesRaw,       s => s)),
     withRetry(() => syncCollection(INVEST_COL,      investmentsRaw, i => i)),
     withRetry(() => syncCollection(PENDING_COL,     pendingSalesRaw, p => p)),
-    // ringSizeGuide: solo guardar si tiene contenido; si todo está vacío, no escribir
+
+    // Fotos de agregados y extras: cada una a su propio doc
+    withRetry(() => syncCollection(AG_IMG_COL, agregadosRaw,  ag => ({ photo: ag.photo || '' }))),
+    withRetry(() => syncCollection(EX_IMG_COL, ringExtrasRaw, ex => ({ photo: ex.photo || '' }))),
+
+    // ringSizeGuide: solo si tiene contenido
     ringSizeGuideRaw && (ringSizeGuideRaw.videoUrl || ringSizeGuideRaw.photo || ringSizeGuideRaw.text)
       ? withRetry(() => setDoc(RING_GUIDE_REF, sanitize(ringSizeGuideRaw)))
+      : Promise.resolve(),
+
+    // ringBoxes: solo si tiene contenido
+    ringBoxesRaw && (ringBoxesRaw.cheap || ringBoxesRaw.premium)
+      ? withRetry(() => setDoc(RING_BOXES_REF, sanitize(ringBoxesRaw)))
       : Promise.resolve(),
   ]);
 }

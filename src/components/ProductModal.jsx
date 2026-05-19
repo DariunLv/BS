@@ -14,6 +14,8 @@ import { getWhatsappNumber, trackProductView, getRingSizeGuide } from '../utils/
 import { getProductInventory, isSizeOutOfStock, getSizeStock } from '../utils/inventory';
 import useImages from '../hooks/useImages';
 import RingSizeGuide from './RingSizeGuide';
+import AddToCartButton from './AddToCartButton';
+import PackDetailOverlay from './PackDetailOverlay';
 
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
 
@@ -118,9 +120,6 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
 
   // ── Detección AMPLIA de productos tipo anillo (incluye "A medida",
   //    "Personalizados", "Anillos a medida", etc.) ──
-  //    Se considera tipo-anillo si:
-  //    a) la categoría incluye "anillo", "ring", "medida", "talla", o
-  //    b) tiene tallas Varón o Dama (estructura típica de anillo)
   const catIdLower = (product.categoryId || '').toLowerCase();
   const looksLikeRing =
     catIdLower.includes('anillo')   ||
@@ -132,10 +131,19 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
     tallasVaron.length > 0          ||
     tallasDama.length > 0;
   const hasAnyTalla = (tallas.length > 0 || tallasVaron.length > 0 || tallasDama.length > 0);
-  // hasTallas: cuándo mostrar el bloque de selección de tallas (V/D/legacy)
+  // hasTallas: cuándo mostrar el bloque de selección de tallas
   const hasTallas = looksLikeRing && hasAnyTalla;
-  // shouldShowRingGuide: cuándo mostrar la guía "¿No sabes tu talla?"
-  const shouldShowRingGuide = looksLikeRing && hasAnyTalla;
+
+  // ── Distinguir tipo de talla: "ajustable" vs "a medida" ──
+  //    (misma lógica que CategoryPage.jsx)
+  //    'ajustable' → al menos una talla contiene "ajust" (ej: "Ajustable")
+  //    'amedida'   → tallas numéricas (5, 6, 7, ...) y ninguna es ajustable
+  const todasLasTallas = [...tallasVaron, ...tallasDama, ...tallas];
+  const esAjustable = todasLasTallas.some(t => String(t).toLowerCase().includes('ajust'));
+  const esAMedida   = hasAnyTalla && !esAjustable;
+
+  // La guía SOLO aparece en anillos "A medida". Los ajustables NO la necesitan.
+  const shouldShowRingGuide = looksLikeRing && esAMedida;
 
   const allRings = storeData
     ? (storeData.products || []).filter(p => p.categoryId?.includes('anillo')).sort((a,b) => (a.sortOrder??9999)-(b.sortOrder??9999))
@@ -311,7 +319,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                     src={images[currentImage]}
                     alt={product.title}
                     loading="eager"
-                    fetchPriority="high"
+                    fetchpriority="high"
                     onLoad={() => setModalImgLoaded(true)}
                     style={{
                       width: '100%',
@@ -1011,6 +1019,7 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
               ? (ringBoxes.premium || { title: 'Caja Premium', photo: '', label: 'Incluida' })
               : (ringBoxes.cheap   || { title: 'Caja de anillo', photo: '', label: 'Incluida' });
             const agregados = (storeData?.agregados || []).sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+            const ringExtras = (storeData?.ringExtras || []).sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
 
             const GREEN       = '#1a7c3e';
             const GREEN_LIGHT = '#d6f0e0';   // verde claro para el fondo de la card
@@ -1213,6 +1222,25 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
                 {agregados.length > 0 && (
                   <AgregadosCarousel agregados={agregados} onImageClick={setLightboxImgSrc} />
                 )}
+
+                {/* ── Extras adicionales para el anillo ── */}
+                {ringExtras.length > 0 && (
+                  <div style={{ marginTop: agregados.length > 0 ? 16 : 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, paddingLeft: 4 }}>
+                      <div style={{
+                        width: 4, height: 14, borderRadius: 2,
+                        background: 'linear-gradient(180deg, #2d9e56, #1a7c3e)',
+                      }} />
+                      <span style={{
+                        fontFamily: '"Outfit", sans-serif',
+                        fontSize: '0.62rem', fontWeight: 700,
+                        color: '#1a7c3e',
+                        textTransform: 'uppercase', letterSpacing: '0.9px',
+                      }}>Extras adicionales</span>
+                    </div>
+                    <AgregadosCarousel agregados={ringExtras} onImageClick={setLightboxImgSrc} />
+                  </div>
+                )}
               </motion.div>
             );
           })()}
@@ -1409,8 +1437,37 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
             </div>
           )}
 
-          {/* ====== BOTON WHATSAPP (solo si showWhatsapp esta activo) ====== */}
-          {!product.soldOut && product.showWhatsapp && (() => {
+          {/* ====== BOTONES DE ACCIÓN ====== */}
+          {/*
+            Reglas:
+              - Anillos (looksLikeRing): SOLO botón "Agregar al carrito"
+                → al pulsarlo, el modal de anillos tiene su propio botón WhatsApp.
+              - Otros productos: AMBOS botones (Agregar al carrito + Consultar WhatsApp)
+              - Packs: NO se agregan al carrito (tienen su propio flujo), solo WhatsApp
+          */}
+
+          {/* Agregar al carrito (todos menos packs) */}
+          {!product.soldOut && !isPack && (
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: 0.15, ease: [0.22,1,0.36,1] }}
+              style={{ marginBottom: 12 }}
+            >
+              <AddToCartButton
+                product={product}
+                storeData={storeData}
+                selectedTalla={selectedTalla}
+                requireTalla={false /* la talla se elige DENTRO del modal de anillo (opcional) */}
+                isRingType={looksLikeRing}
+                onOpenPack={(pack) => setSelectedPackDetail(pack)}
+                fullWidth
+              />
+            </motion.div>
+          )}
+
+          {/* WhatsApp directo SOLO si NO es anillo (en anillos se envía desde el modal) */}
+          {!product.soldOut && !looksLikeRing && (() => {
             const { number, encoded } = whatsappMsg();
             return (
               <motion.div
@@ -1441,6 +1498,36 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
               </motion.div>
             );
           })()}
+
+          {/* Caso especial: packs SÍ tienen WhatsApp directo */}
+          {!product.soldOut && isPack && (() => {
+            const { number, encoded } = whatsappMsg();
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, delay: 0.158, ease: [0.22,1,0.36,1] }}
+              >
+              <motion.a
+                href={`https://wa.me/${number}?text=${encoded}`}
+                target="_blank" rel="noopener noreferrer"
+                whileTap={{ scale: 0.96 }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                  background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                  color: 'white', padding: '14px 24px', borderRadius: 16,
+                  fontFamily: '"Outfit", sans-serif', fontSize: '0.9rem', fontWeight: 600,
+                  textDecoration: 'none', cursor: 'pointer',
+                  boxShadow: '0 6px 20px rgba(37,211,102,0.35)',
+                  border: 'none', width: '100%',
+                }}
+              >
+                <IconBrandWhatsapp size={20} />
+                Consultar por WhatsApp
+              </motion.a>
+              </motion.div>
+            );
+          })()}
         </div>
         </motion.div>
         </AnimatePresence>
@@ -1452,10 +1539,11 @@ export default function ProductModal({ product: initialProduct, open, onClose, s
 
 
     {selectedPackDetail && (
-      <PackDetailModal
+      <PackDetailOverlay
         pack={selectedPackDetail}
         onClose={() => setSelectedPackDetail(null)}
         ringProduct={product}
+        hideAction={true}
       />
     )}
 
@@ -1998,6 +2086,10 @@ function PackDetailModal({ pack, onClose, ringProduct }) {
     <Modal opened={true} onClose={onClose}
       title={pack.title}
       centered size="md" radius="lg"
+      zIndex={10300}
+      closeOnEscape={true}
+      closeOnClickOutside={true}
+      withinPortal={true}
       styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600, color: COLORS.navy } }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 

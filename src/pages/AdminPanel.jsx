@@ -1,5 +1,5 @@
 // src/pages/AdminPanel.jsx
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import useImages from '../hooks/useImages';
 import {
   Button, TextInput, Textarea, Select, Switch, Tabs, Modal, FileInput,
@@ -11,7 +11,7 @@ import {
   IconDiamond, IconShoppingBag, IconCheck, IconX, IconSettings,
   IconLock, IconUpload, IconMapPin, IconTruck, IconLink, IconReportMoney,
   IconBrandWhatsapp, IconArrowUp, IconArrowDown, IconArrowsSort, IconBox, IconRefresh, IconGift,
-  IconRulerMeasure, IconPlayerPlay, IconVideo,
+  IconRulerMeasure, IconPlayerPlay, IconVideo, IconAlertTriangle, IconSparkles,
 } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -23,6 +23,7 @@ import {
   reorderProducts, reorderCategories,
   getProductViews, getPriceHistory,
   getAgregados, addAgregado, updateAgregado, deleteAgregado, reorderAgregados,
+  getRingExtras, addRingExtra, updateRingExtra, deleteRingExtra, reorderRingExtras,
   getRingBoxes, updateRingBoxes,
   getRingSizeGuide, updateRingSizeGuide,
 } from '../utils/store';
@@ -136,6 +137,7 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
           <Tabs.Tab value="categories" leftSection={<IconCategory size={14} />} style={{ fontSize: '0.75rem' }}>Categorías</Tabs.Tab>
           <Tabs.Tab value="inventory" leftSection={<IconBox size={14} />} style={{ fontSize: '0.75rem' }}>Inventario</Tabs.Tab>
           <Tabs.Tab value="extras" leftSection={<IconGift size={14} />} style={{ fontSize: '0.75rem' }}>Extras</Tabs.Tab>
+          <Tabs.Tab value="rings" leftSection={<IconRulerMeasure size={14} />} style={{ fontSize: '0.75rem' }}>Anillos</Tabs.Tab>
           <Tabs.Tab value="delivery" leftSection={<IconMapPin size={14} />} style={{ fontSize: '0.75rem' }}>Entregas</Tabs.Tab>
           <Tabs.Tab value="accounting" leftSection={<IconReportMoney size={14} />} style={{ fontSize: '0.75rem' }}>Cuentas</Tabs.Tab>
         </Tabs.List>
@@ -461,8 +463,15 @@ export default function AdminPanel({ storeData, onRefresh, onLogout }) {
               </Button>
             </div>
           </div>
+        </Tabs.Panel>
 
-          {/* ====== GUÍA DE TALLAS DE ANILLOS ====== */}
+        <Tabs.Panel value="rings" pt="md">
+          <Text size="lg" fw={600} mb={4} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>
+            Configuración de Anillos
+          </Text>
+          <Text size="sm" c="dimmed" mb={20} style={{ fontFamily: '"Outfit", sans-serif' }}>
+            Configura el video y la foto guía que verán los clientes para elegir su talla de anillo
+          </Text>
           <RingSizeGuideAdmin onRefresh={onRefresh} />
         </Tabs.Panel>
 
@@ -637,12 +646,12 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
                 {tallasV.length > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.6rem', fontWeight: 700, color: '#2c4a80', minWidth: 32 }}>V:</span>
-                    {tallasV.map(t => {
+                    {tallasV.map((t, idx) => {
                       const s = inv.sizeStock[`V-${t}`] ?? null;
                       if (s === null) return null;
                       const out = s === 0;
                       return (
-                        <div key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 8, background: out ? '#fee6e6' : s <= 2 ? '#fff8e6' : '#e6f9e6', border: `1px solid ${out ? '#e11d4833' : s <= 2 ? '#d9770633' : '#2d8a2d33'}` }}>
+                        <div key={`V-${t}-${idx}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 8, background: out ? '#fee6e6' : s <= 2 ? '#fff8e6' : '#e6f9e6', border: `1px solid ${out ? '#e11d4833' : s <= 2 ? '#d9770633' : '#2d8a2d33'}` }}>
                           <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.62rem', fontWeight: 700, color: out ? '#e11d48' : s <= 2 ? '#d97706' : '#1a5c1a' }}>
                             {t}: {out ? 'Agotado' : `${s}`}
                           </span>
@@ -654,12 +663,12 @@ function ProductListItem({ product, categories, onEdit, onDelete, onToggleSoldOu
                 {tallasD.length > 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.6rem', fontWeight: 700, color: '#c2255c', minWidth: 32 }}>D:</span>
-                    {tallasD.map(t => {
+                    {tallasD.map((t, idx) => {
                       const s = inv.sizeStock[`D-${t}`] ?? null;
                       if (s === null) return null;
                       const out = s === 0;
                       return (
-                        <div key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 8, background: out ? '#fee6e6' : s <= 2 ? '#fff8e6' : '#e6f9e6', border: `1px solid ${out ? '#e11d4833' : s <= 2 ? '#d9770633' : '#2d8a2d33'}` }}>
+                        <div key={`D-${t}-${idx}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', borderRadius: 8, background: out ? '#fee6e6' : s <= 2 ? '#fff8e6' : '#e6f9e6', border: `1px solid ${out ? '#e11d4833' : s <= 2 ? '#d9770633' : '#2d8a2d33'}` }}>
                           <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.62rem', fontWeight: 700, color: out ? '#e11d48' : s <= 2 ? '#d97706' : '#1a5c1a' }}>
                             {t}: {out ? 'Agotado' : `${s}`}
                           </span>
@@ -836,9 +845,25 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
   const removeImage = (idx) => setForm(p => ({ ...p, images: p.images.filter((_, i) => i !== idx) }));
 
   // Tallas
-  const addTallaVaron = () => { if (newTallaVaron.trim()) { setForm(p => ({ ...p, tallasVaron: [...p.tallasVaron, newTallaVaron.trim()] })); setNewTallaVaron(''); }};
+  const addTallaVaron = () => {
+    const v = newTallaVaron.trim();
+    if (!v) return;
+    setForm(p => {
+      if ((p.tallasVaron || []).includes(v)) return p; // ya existe → no duplicar
+      return { ...p, tallasVaron: [...p.tallasVaron, v] };
+    });
+    setNewTallaVaron('');
+  };
   const removeTallaVaron = (idx) => setForm(p => ({ ...p, tallasVaron: p.tallasVaron.filter((_, i) => i !== idx) }));
-  const addTallaDama = () => { if (newTallaDama.trim()) { setForm(p => ({ ...p, tallasDama: [...p.tallasDama, newTallaDama.trim()] })); setNewTallaDama(''); }};
+  const addTallaDama = () => {
+    const v = newTallaDama.trim();
+    if (!v) return;
+    setForm(p => {
+      if ((p.tallasDama || []).includes(v)) return p; // ya existe → no duplicar
+      return { ...p, tallasDama: [...p.tallasDama, v] };
+    });
+    setNewTallaDama('');
+  };
   const removeTallaDama = (idx) => setForm(p => ({ ...p, tallasDama: p.tallasDama.filter((_, i) => i !== idx) }));
 
   // Contenidos
@@ -1104,7 +1129,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {form.tallasVaron.length === 0 ? <Text size="xs" c="dimmed" style={{ fontStyle: 'italic' }}>Sin tallas</Text> :
                         form.tallasVaron.map((t, i) => (
-                          <Badge key={i} size="md" radius="xl" style={{ background: '#2c4a80', color: 'white' }}
+                          <Badge key={`tv-${t}-${i}`} size="md" radius="xl" style={{ background: '#2c4a80', color: 'white' }}
                             rightSection={<ActionIcon size="xs" variant="transparent" style={{ color: 'rgba(255,255,255,0.8)' }} onClick={() => removeTallaVaron(i)}><IconX size={9} /></ActionIcon>}>{t}</Badge>
                         ))}
                     </div>
@@ -1124,7 +1149,7 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {form.tallasDama.length === 0 ? <Text size="xs" c="dimmed" style={{ fontStyle: 'italic' }}>Sin tallas</Text> :
                         form.tallasDama.map((t, i) => (
-                          <Badge key={i} size="md" radius="xl" style={{ background: '#c2255c', color: 'white' }}
+                          <Badge key={`td-${t}-${i}`} size="md" radius="xl" style={{ background: '#c2255c', color: 'white' }}
                             rightSection={<ActionIcon size="xs" variant="transparent" style={{ color: 'rgba(255,255,255,0.8)' }} onClick={() => removeTallaDama(i)}><IconX size={9} /></ActionIcon>}>{t}</Badge>
                         ))}
                     </div>
@@ -1285,8 +1310,6 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
             onChange={(e) => setForm(p => ({ ...p, soldOut: e.currentTarget.checked }))} color="orange" />
           <Switch label="Marcar como Nuevo" checked={!!form.isNew}
             onChange={(e) => setForm(p => ({ ...p, isNew: e.currentTarget.checked }))} color="green" />
-          <Switch label="Mostrar botón de WhatsApp" checked={form.showWhatsapp}
-            onChange={(e) => setForm(p => ({ ...p, showWhatsapp: e.currentTarget.checked }))} color="green" />
 
           {/* ===== STOCK INICIAL ===== */}
           {!product && (
@@ -1313,8 +1336,8 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                       <div style={{ marginBottom: form.tallasDama.length > 0 ? 12 : 0 }}>
                         <Text size="xs" fw={700} mb={6} style={{ fontFamily: '"Outfit",sans-serif', color: '#2c4a80' }}>Varón</Text>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(70px,1fr))', gap: 8 }}>
-                          {form.tallasVaron.map(t => (
-                            <div key={`V-${t}`} style={{ borderRadius: 8, border: '1px solid #2c4a8033', overflow: 'hidden' }}>
+                          {form.tallasVaron.map((t, i) => (
+                            <div key={`stockV-${t}-${i}`} style={{ borderRadius: 8, border: '1px solid #2c4a8033', overflow: 'hidden' }}>
                               <div style={{ padding: '4px 6px', textAlign: 'center', background: '#eef2ff', borderBottom: '1px solid #2c4a8022' }}>
                                 <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.72rem', fontWeight: 700, color: '#2c4a80' }}>{t}</span>
                               </div>
@@ -1332,8 +1355,8 @@ function ProductFormModal({ open, product, categories, storeType, allProducts, o
                       <div>
                         <Text size="xs" fw={700} mb={6} style={{ fontFamily: '"Outfit",sans-serif', color: '#c2255c' }}>Dama</Text>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(70px,1fr))', gap: 8 }}>
-                          {form.tallasDama.map(t => (
-                            <div key={`D-${t}`} style={{ borderRadius: 8, border: '1px solid #c2255c33', overflow: 'hidden' }}>
+                          {form.tallasDama.map((t, i) => (
+                            <div key={`stockD-${t}-${i}`} style={{ borderRadius: 8, border: '1px solid #c2255c33', overflow: 'hidden' }}>
                               <div style={{ padding: '4px 6px', textAlign: 'center', background: '#fff0f6', borderBottom: '1px solid #c2255c22' }}>
                                 <span style={{ fontFamily: '"Outfit",sans-serif', fontSize: '0.72rem', fontWeight: 700, color: '#c2255c' }}>{t}</span>
                               </div>
@@ -1805,6 +1828,9 @@ function ExtrasPanel({ storeData, onRefresh }) {
         )}
       </div>
 
+      {/* ====== EXTRAS ADICIONALES (segunda lista) ====== */}
+      <RingExtrasSection onRefresh={onRefresh} setLightboxSrc={setLightboxSrc} storeData={storeData} />
+
       {/* Lightbox */}
       {lightboxSrc && (
         <div onClick={() => setLightboxSrc(null)}
@@ -1816,6 +1842,168 @@ function ExtrasPanel({ storeData, onRefresh }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ============================================================
+   ADMIN: Extras opcionales para anillos (segunda lista)
+   ============================================================ */
+function RingExtrasSection({ onRefresh, setLightboxSrc, storeData }) {
+  const [items, setItems] = useState(() => getRingExtras());
+  const [form, setForm] = useState({ title: '', tag: '', photo: '' });
+  const [editing, setEditing] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => { setItems(getRingExtras()); }, [storeData]);
+
+  const handlePhoto = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const b64 = await uploadImage(file);
+      if (editing) setEditing(p => ({ ...p, photo: b64 }));
+      else setForm(p => ({ ...p, photo: b64 }));
+    } catch { notifications.show({ title: 'Error', message: 'Error al subir foto', color: 'red' }); }
+    finally { setUploading(false); }
+  };
+
+  const handleAdd = () => {
+    if (!form.title.trim()) {
+      notifications.show({ title: 'Error', message: 'El título es obligatorio', color: 'red' });
+      return;
+    }
+    addRingExtra({
+      id: generateId(),
+      title: form.title.trim(),
+      tag: form.tag.trim(),
+      photo: form.photo,
+    });
+    setForm({ title: '', tag: '', photo: '' });
+    setItems(getRingExtras());
+    onRefresh();
+    notifications.show({ title: 'Agregado', message: 'Extra guardado', color: 'green' });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editing) return;
+    updateRingExtra(editing.id, {
+      title: editing.title,
+      tag: editing.tag,
+      photo: editing.photo,
+    });
+    setEditing(null);
+    setItems(getRingExtras());
+    onRefresh();
+    notifications.show({ title: 'Actualizado', message: 'Extra actualizado', color: 'green' });
+  };
+
+  const handleDelete = (id) => {
+    deleteRingExtra(id);
+    setItems(getRingExtras());
+    onRefresh();
+    notifications.show({ title: 'Eliminado', message: 'Extra eliminado', color: 'red' });
+  };
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <Card padding="md" radius="md" withBorder style={{ background: COLORS.orangePale, border: `1px solid ${COLORS.orange}`, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <IconSparkles size={20} color={COLORS.orange} style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <Text size="sm" fw={600} mb={4} style={{ fontFamily: '"Outfit",sans-serif', color: COLORS.navy }}>
+              Extras opcionales para anillos
+            </Text>
+            <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit",sans-serif', lineHeight: 1.5 }}>
+              Estos extras aparecen en el modal cuando el cliente agrega un anillo al carrito.
+              Son adicionales a los Agregados de arriba — úsalos para opciones como grabados, envoltorios especiales, etc.
+            </Text>
+          </div>
+        </div>
+      </Card>
+
+      {/* Formulario nuevo */}
+      <Card padding="md" radius="md" withBorder style={{ marginBottom: 14 }}>
+        <Text size="sm" fw={600} mb={10} style={{ fontFamily: '"Outfit",sans-serif', color: COLORS.navy }}>
+          {editing ? 'Editar extra' : 'Agregar nuevo extra'}
+        </Text>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div style={{ flexShrink: 0 }}>
+            {(editing?.photo || form.photo) ? (
+              <div style={{ position: 'relative' }}>
+                <img src={editing?.photo || form.photo} alt="" style={{ width: 70, height: 70, borderRadius: 10, objectFit: 'cover', border: `1px solid ${COLORS.borderLight}` }} />
+                <ActionIcon size="xs" variant="filled" color="red" radius="xl"
+                  style={{ position: 'absolute', top: -6, right: -6 }}
+                  onClick={() => editing ? setEditing(p => ({ ...p, photo: '' })) : setForm(p => ({ ...p, photo: '' }))}>
+                  <IconX size={10} />
+                </ActionIcon>
+              </div>
+            ) : (
+              <FileInput accept="image/*" placeholder={uploading ? 'Subiendo...' : 'Foto'}
+                leftSection={<IconUpload size={14} />}
+                onChange={handlePhoto} radius="md" w={130}
+                disabled={uploading} />
+            )}
+          </div>
+          <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <TextInput placeholder="Título (ej: Grabado interior, Envoltorio especial)"
+              value={editing ? editing.title : form.title}
+              onChange={(e) => { const v = e.currentTarget.value;
+                editing ? setEditing(p => ({ ...p, title: v })) : setForm(p => ({ ...p, title: v })); }}
+              radius="md" size="sm" />
+            <TextInput placeholder="Tag opcional (ej: Personalizado)"
+              value={editing ? editing.tag : form.tag}
+              onChange={(e) => { const v = e.currentTarget.value;
+                editing ? setEditing(p => ({ ...p, tag: v })) : setForm(p => ({ ...p, tag: v })); }}
+              radius="md" size="sm" />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          {editing ? (
+            <>
+              <Button onClick={handleSaveEdit} leftSection={<IconCheck size={14} />} radius="md"
+                style={{ background: COLORS.orange }}>Guardar cambios</Button>
+              <Button onClick={() => setEditing(null)} variant="subtle" radius="md">Cancelar</Button>
+            </>
+          ) : (
+            <Button onClick={handleAdd} leftSection={<IconPlus size={14} />} radius="md"
+              style={{ background: COLORS.orange }}>Agregar extra</Button>
+          )}
+        </div>
+      </Card>
+
+      {/* Lista */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {items.length === 0 ? (
+          <Text size="sm" c="dimmed" ta="center" mt={20} style={{ fontFamily: '"Outfit",sans-serif' }}>
+            No hay extras configurados. Agrega el primero arriba.
+          </Text>
+        ) : items.map(ex => (
+          <Card key={ex.id} padding="sm" radius="md" withBorder>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {ex.photo ? (
+                <img src={ex.photo} alt="" onClick={() => setLightboxSrc(ex.photo)}
+                  style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', cursor: 'pointer', flexShrink: 0, border: `1px solid ${COLORS.borderLight}` }} />
+              ) : (
+                <div style={{ width: 50, height: 50, borderRadius: 10, background: COLORS.offWhite, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <IconSparkles size={20} color={COLORS.orange} />
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Text size="sm" fw={600} lineClamp={1} style={{ fontFamily: '"Outfit",sans-serif' }}>{ex.title}</Text>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 2, flexWrap: 'wrap' }}>
+                  <Badge size="xs" variant="light" color="green">GRATIS</Badge>
+                  {ex.tag && <Badge size="xs" variant="light" color="blue">{ex.tag}</Badge>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <ActionIcon size="sm" variant="light" color="blue" radius="xl" onClick={() => setEditing({ ...ex })}><IconEdit size={13} /></ActionIcon>
+                <ActionIcon size="sm" variant="light" color="red" radius="xl" onClick={() => handleDelete(ex.id)}><IconTrash size={13} /></ActionIcon>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1859,13 +2047,13 @@ function RingSizeGuideAdmin({ onRefresh }) {
     const url = (videoUrl || '').trim();
     if (!url) return null;
     const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
-    if (yt) return { type: 'YouTube', label: '🎬 YouTube detectado' };
+    if (yt) return { type: 'YouTube', label: 'YouTube detectado', ok: true };
     const vm = url.match(/vimeo\.com\/(\d+)/);
-    if (vm) return { type: 'Vimeo', label: '🎬 Vimeo detectado' };
+    if (vm) return { type: 'Vimeo', label: 'Vimeo detectado', ok: true };
     const gd = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-    if (gd) return { type: 'Drive', label: '🎬 Google Drive detectado' };
-    if (/\.(mp4|webm|mov|m4v)$/i.test(url)) return { type: 'Video', label: '🎬 Video directo detectado' };
-    return { type: 'desconocido', label: '⚠ URL no reconocida — verifica que sea un video' };
+    if (gd) return { type: 'Drive', label: 'Google Drive detectado', ok: true };
+    if (/\.(mp4|webm|mov|m4v)$/i.test(url)) return { type: 'Video', label: 'Video directo detectado', ok: true };
+    return { type: 'desconocido', label: 'URL no reconocida — verifica que sea un video', ok: false };
   }, [videoUrl]);
 
   const handleSaveVideoUrl = () => {
@@ -1919,16 +2107,22 @@ function RingSizeGuideAdmin({ onRefresh }) {
   };
 
   return (
-    <div style={{ borderTop: `1px solid ${COLORS.borderLight}`, paddingTop: 24, marginTop: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <IconRulerMeasure size={20} color={COLORS.orange} />
-        <Text size="lg" fw={600} style={{ fontFamily: '"Playfair Display", serif', color: COLORS.navy }}>
-          Guía de Tallas — Anillos
-        </Text>
-      </div>
-      <Text size="sm" c="dimmed" mb={16} style={{ fontFamily: '"Outfit", sans-serif' }}>
-        Aparece debajo de la descripción en TODOS los anillos con tallas. Solo se muestra si hay video o foto configurados.
-      </Text>
+    <div style={{ paddingTop: 8 }}>
+      <Card padding="md" radius="md" withBorder style={{ marginBottom: 16, background: COLORS.orangePale, border: `1px solid ${COLORS.orange}` }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <IconRulerMeasure size={20} color={COLORS.orange} style={{ flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <Text size="sm" fw={600} style={{ fontFamily: '"Outfit", sans-serif', color: COLORS.navy, marginBottom: 4 }}>
+              Guía de Tallas para Anillos
+            </Text>
+            <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif', lineHeight: 1.5 }}>
+              Aparece debajo de la descripción ÚNICAMENTE en anillos "A medida" (con tallas numéricas como 5, 6, 7...).
+              En anillos ajustables NO aparece, porque no la necesitan.
+              Si dejas vacíos el video y la foto, no se muestra nada al cliente.
+            </Text>
+          </div>
+        </div>
+      </Card>
 
       {/* Mensaje personalizable */}
       <Card padding="md" radius="md" withBorder style={{ marginBottom: 14, background: COLORS.offWhite }}>
@@ -1976,11 +2170,16 @@ function RingSizeGuideAdmin({ onRefresh }) {
           </Button>
         </div>
         {videoPreview && (
-          <Text size="xs" mt={6}
-            style={{ fontFamily: '"Outfit", sans-serif',
-              color: videoPreview.type === 'desconocido' ? '#c92a2a' : '#2d8a2d' }}>
-            {videoPreview.label}
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
+            fontFamily: '"Outfit", sans-serif',
+            color: videoPreview.ok ? '#2d8a2d' : '#c92a2a' }}>
+            {videoPreview.ok
+              ? <IconCheck size={13} stroke={2.5} />
+              : <IconAlertTriangle size={13} stroke={2} />}
+            <Text size="xs" style={{ color: 'inherit' }}>
+              {videoPreview.label}
+            </Text>
+          </div>
         )}
         {guide.videoUrl && (
           <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

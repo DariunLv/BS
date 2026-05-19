@@ -403,10 +403,7 @@ export default function AccountingPanel({ storeData, onRefresh }) {
             const tallasArr = Array.isArray(v?.tallaSold)
               ? v.tallaSold
               : (v?.tallaSold ? [v.tallaSold] : []);
-            notifications.show({
-              id: 'sale-del-' + id, title: 'Eliminando...', message: 'Reponiendo inventario',
-              color: 'blue', loading: true, autoClose: false,
-            });
+            // NO mostrar notification de "loading" para evitar bug de NaN% en framer-motion
             deleteSaleAtomic(id, v?.productId, tallasArr)
               .then(() => {
                 deleteSale(id);
@@ -425,17 +422,17 @@ export default function AccountingPanel({ storeData, onRefresh }) {
                   });
                 }
                 onRefresh();
-                notifications.update({
-                  id: 'sale-del-' + id, title: '✓ Venta eliminada', message: 'Inventario repuesto',
-                  color: 'green', loading: false, autoClose: 2500,
+                notifications.show({
+                  title: 'Venta eliminada', message: 'Inventario repuesto',
+                  color: 'green', autoClose: 2500,
                 });
               })
               .catch(err => {
                 console.error('[deleteSale] Error:', err);
-                notifications.update({
-                  id: 'sale-del-' + id, title: '✗ No se pudo eliminar',
+                notifications.show({
+                  title: 'No se pudo eliminar',
                   message: 'Verifica tu conexión e intenta de nuevo.',
-                  color: 'red', loading: false, autoClose: 7000,
+                  color: 'red', autoClose: 7000,
                 });
               });
           }}
@@ -1670,14 +1667,7 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
       // Si falla, NADA se escribe (antes: a veces no guardaba la venta
       // pero igual descontaba el stock — eso ya NO puede pasar).
       // ─────────────────────────────────────────────────────────────────
-      notifications.show({
-        id: 'sale-saving-' + saleId,
-        title: 'Guardando venta...',
-        message: 'Registrando y actualizando inventario',
-        color: 'blue',
-        loading: true,
-        autoClose: false,
-      });
+      // NO mostrar notification de "loading" para evitar bug de NaN% en framer-motion
 
       registerSaleAtomic(saleData, form.productId, tallasVendidas)
         .then(({ isOut, deducted }) => {
@@ -1691,24 +1681,20 @@ function SaleFormModal({ open, sale, categories, products, onClose, onSave }) {
               if (prod && !prod.soldOut) toggleSoldOut(form.productId);
             });
           }
-          notifications.update({
-            id: 'sale-saving-' + saleId,
-            title: '✓ Venta registrada',
+          notifications.show({
+            title: 'Venta registrada',
             message: deducted ? 'Stock descontado correctamente' : 'Venta guardada',
             color: 'green',
-            loading: false,
             autoClose: 2500,
           });
           onSave();
         })
         .catch((err) => {
           console.error('[registerSale] Error:', err);
-          notifications.update({
-            id: 'sale-saving-' + saleId,
-            title: '✗ No se pudo guardar la venta',
+          notifications.show({
+            title: 'No se pudo guardar la venta',
             message: 'No se descontó el inventario. Verifica tu conexión e intenta de nuevo.',
             color: 'red',
-            loading: false,
             autoClose: 7000,
           });
         });

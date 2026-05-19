@@ -21,6 +21,8 @@ import { loadStore, setCacheData, subscribeToStore } from './utils/store';
 import { loadFromFirebase } from './utils/firebase';
 import { flushSaveQueue } from './utils/saveQueue';
 import SaveIndicator from './components/SaveIndicator';
+import { CartProvider } from './utils/CartContext';
+import CartDrawer from './components/CartDrawer';
 import AnimatedBackground from './components/AnimatedBackground';
 
 export default function App() {
@@ -31,12 +33,15 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const LOCAL_CACHE_KEY = 'benito_cache_v2';
 
-  // Iniciar con caché local si existe → carga instantánea
+  // Iniciar con caché local si existe → carga instantánea (UI preview)
+  // IMPORTANTE: marcamos cacheData con _isLight=true para que store.js NO lo guarde
+  // a Firebase mientras está light. Firebase es la fuente de verdad.
   const [storeData, setStoreData] = useState(() => {
     try {
       const cached = localStorage.getItem(LOCAL_CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
+        parsed._isLight = true;          // marca para bloquear save accidental
         setCacheData(parsed);
         return loadStore();
       }
@@ -66,34 +71,23 @@ export default function App() {
     return unsub;
   }, []);
 
-  // Cargar Firebase en background — si hay caché, el usuario ya ve contenido
+  // Cargar Firebase al inicio. Firebase es la ÚNICA fuente de verdad.
+  // El caché local solo sirve para mostrar UI rápido mientras Firebase carga.
   useEffect(() => {
     loadFromFirebase().then((firebaseData) => {
       if (firebaseData) {
-        // Solo sobreescribir si Firebase tiene datos más recientes que el caché local
-        // Esto evita la condición de carrera donde un save reciente se pierde
-        let useFirebase = true;
+        // Firebase tiene la verdad → ponerla en el cache de memoria
+        setCacheData(firebaseData);
+        setStoreData(loadStore());
+        // Guardar versión LIGERA en localStorage (sin fotos pesadas).
+        // Esto es solo para que la próxima visita muestre la UI rápido.
         try {
-          const cached = localStorage.getItem(LOCAL_CACHE_KEY);
-          if (cached) {
-            const localData = JSON.parse(cached);
-            const localTs = localData._lastModified || 0;
-            const firebaseTs = firebaseData._lastModified || 0;
-            if (localTs > firebaseTs) {
-              // El local es más nuevo (guardamos hace poco y Firebase no lo tiene aún)
-              // Re-guardar el local en Firebase para sincronizarlo
-              useFirebase = false;
-              import('./utils/store').then(({ saveStore, loadStore }) => {
-                saveStore(localData);
-              });
+          import('./utils/store').then(({ buildLightCache }) => {
+            if (buildLightCache) {
+              localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(buildLightCache(firebaseData)));
             }
-          }
+          });
         } catch {}
-        if (useFirebase) {
-          setCacheData(firebaseData);
-          setStoreData(loadStore());
-          try { localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(firebaseData)); } catch {}
-        }
       }
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
@@ -150,6 +144,7 @@ export default function App() {
   const isAdminRoute = location.pathname.startsWith('/admin');
 
   return (
+    <CartProvider>
     <>
       {!isAdminRoute && (() => {
         // Reducir efectos en celulares de gama baja (< 4 núcleos o memoria < 4GB)
@@ -223,8 +218,11 @@ export default function App() {
           <AdminLogin open={showLogin} onClose={() => setShowLogin(false)} onSuccess={handleLoginSuccess} />
           {/* Indicador de guardado: visible para admin en /admin (no molesta a clientes) */}
           {isAdmin && isAdminRoute && <SaveIndicator visible={true} />}
+          {/* Drawer del carrito: solo se renderiza en rutas de cliente */}
+          {!isAdminRoute && <CartDrawer />}
         </div>
       </ClickSpark>
     </>
+    </CartProvider>
   );
 }

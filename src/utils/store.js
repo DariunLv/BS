@@ -52,6 +52,7 @@ const DEFAULT_DATA = {
   frecuentClients: [],
   pagosAccionista: [],
   agregados: [],
+  ringExtras: [],
   ringBoxes: {
     cheap:   { title: 'Caja de anillo', photo: '', label: 'Incluida' },
     premium: { title: 'Caja Premium',   photo: '', label: 'Incluida' },
@@ -79,7 +80,29 @@ function _notify() {
 }
 
 export function loadStore() {
-  if (cacheData) return JSON.parse(JSON.stringify(cacheData));
+  if (cacheData) {
+    const copy = JSON.parse(JSON.stringify(cacheData));
+    // Deduplicación defensiva (por si el cache quedó con productos repetidos)
+    if (Array.isArray(copy.products)) {
+      const seen = new Set();
+      copy.products = copy.products.filter(p => {
+        if (!p || !p.id) return false;
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        return true;
+      });
+    }
+    if (Array.isArray(copy.categories)) {
+      const seen = new Set();
+      copy.categories = copy.categories.filter(c => {
+        if (!c || !c.id) return false;
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      });
+    }
+    return copy;
+  }
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
 
@@ -108,23 +131,77 @@ export function saveStore(data) {
     console.error('[saveStore] datos inválidos, no se guardan:', data);
     return;
   }
+  // PROTECCIÓN: si los datos vienen del caché light de localStorage (Firebase aún no
+  // cargó), NO permitir guardar a Firebase. Esto previene sobrescribir Firebase con
+  // datos incompletos antes de que la carga inicial termine.
+  if (data._isLight) {
+    console.warn('[saveStore] datos están en modo light (Firebase no cargado todavía); guardado bloqueado');
+    return;
+  }
   data._lastModified = Date.now();
   cacheData = data;
   _notify();
 
-  // 1. Caché local inmediato (instantáneo)
-  try { localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(data)); } catch (e) {
-    // localStorage lleno: intentar limpiar caché de imágenes externo
-    console.warn('[saveStore] localStorage lleno, limpiando...');
+  // 1. Caché local: SOLO METADATOS LIGEROS (sin imágenes, sin descripciones largas)
+  //    Las imágenes y datos pesados se cargan SIEMPRE desde Firebase.
+  try {
+    const lightData = buildLightCache(data);
+    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(lightData));
+  } catch (e) {
+    // Si aun así falla, hacer limpieza completa y guardar lo MÍNIMO indispensable
     try {
-      // No tocamos otras keys del usuario, solo notificamos
-      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(data));
-    } catch {}
+      localStorage.removeItem(LOCAL_CACHE_KEY);
+      localStorage.removeItem('benito_cache_v1'); // posible cache viejo
+      // Mínimo absoluto: solo categorías y config — productos vendrán de Firebase al cargar
+      const minimal = {
+        categories: (data.categories || []).slice(0, 50),
+        whatsappNumber: data.whatsappNumber || '',
+        adminPassword: data.adminPassword || '',
+        _lastModified: data._lastModified,
+        _minimal: true,
+      };
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(minimal));
+    } catch {
+      // Si TODAVÍA falla, no hay nada que hacer — Firebase tiene la verdad de todos modos
+    }
   }
 
   // 2. Firebase via cola persistente (con retry automático y flush al cerrar)
   const { products: _ignored, ...meta } = data;
   enqueueFullSave({ ...meta });
+}
+
+/** Construye una versión ligera del cache para localStorage. */
+export function buildLightCache(data) {
+  // Removemos _isLight si viene en data — esa bandera solo aplica al cacheData en memoria
+  const { _isLight: _ignored, ...rest } = data;
+  return {
+    ...rest,
+    // Productos: sin imágenes ni descripciones (vienen de Firebase)
+    products: (rest.products || []).map(p => {
+      const { images, description, ...prod } = p;
+      return prod;
+    }),
+    // Sin imágenes en ringSizeGuide
+    ringSizeGuide: rest.ringSizeGuide
+      ? { ...rest.ringSizeGuide, photo: '' }
+      : undefined,
+    // Sin fotos en agregados y ringExtras
+    agregados: (rest.agregados || []).map(a => ({ ...a, photo: '' })),
+    ringExtras: (rest.ringExtras || []).map(a => ({ ...a, photo: '' })),
+    // ringBoxes sin fotos
+    ringBoxes: rest.ringBoxes ? {
+      cheap:   rest.ringBoxes.cheap   ? { ...rest.ringBoxes.cheap,   photo: '', photo2: '' } : undefined,
+      premium: rest.ringBoxes.premium ? { ...rest.ringBoxes.premium, photo: '', photo2: '' } : undefined,
+    } : undefined,
+    // Clientes sin foto
+    frecuentClients: (rest.frecuentClients || []).map(({ foto, ...c }) => c),
+    shalomImage: '',
+    // Truncar listas grandes — Firebase tiene la versión completa
+    sales:        (rest.sales        || []).slice(-200),
+    investments:  (rest.investments  || []).slice(-200),
+    pendingSales: (rest.pendingSales || []).slice(-100),
+  };
 }
 
 export function setCacheData(data) {
@@ -137,6 +214,7 @@ export function setCacheData(data) {
   if (!data.pagosAccionista) data.pagosAccionista = [];
   if (!data.whatsappNumber) data.whatsappNumber = '51970824366';
   if (!data.agregados) data.agregados = [];
+  if (!data.ringExtras) data.ringExtras = [];
   if (!data.ringBoxes) data.ringBoxes = {
     cheap:   { title: 'Caja de anillo', photo: '', label: 'Incluida' },
     premium: { title: 'Caja Premium',   photo: '', label: 'Incluida' },
@@ -146,6 +224,35 @@ export function setCacheData(data) {
     photo: '',
     text: '¿No sabes tu talla? Mira este video para descubrirlo',
   };
+
+  // Deduplicar productos por ID (puede pasar si el caché viejo tenía duplicados)
+  if (Array.isArray(data.products)) {
+    const seen = new Set();
+    data.products = data.products.filter(p => {
+      if (!p || !p.id) return false;
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+    // Además, deduplicar tallas DENTRO de cada producto
+    data.products = data.products.map(p => {
+      const out = { ...p };
+      if (Array.isArray(out.tallasVaron)) out.tallasVaron = [...new Set(out.tallasVaron.map(String))];
+      if (Array.isArray(out.tallasDama))  out.tallasDama  = [...new Set(out.tallasDama.map(String))];
+      if (Array.isArray(out.tallas))      out.tallas      = [...new Set(out.tallas.map(String))];
+      return out;
+    });
+  }
+  // Deduplicar categorías por ID
+  if (Array.isArray(data.categories)) {
+    const seenC = new Set();
+    data.categories = data.categories.filter(c => {
+      if (!c || !c.id) return false;
+      if (seenC.has(c.id)) return false;
+      seenC.add(c.id);
+      return true;
+    });
+  }
 
   // Asegurar que todas las categorías por defecto existen (merge sin duplicar)
   const existingIds = (data.categories || []).map(c => c.id);
@@ -269,13 +376,21 @@ export function recordPriceChange(productId, productTitle, oldPrice, newPrice) {
 
 /**
  * Helper: persiste el cacheData en localStorage (sin disparar Firebase save).
- * Útil para mantener el caché local consistente en operaciones por-producto.
+ * Usa la misma compresión que saveStore para no inflar el storage.
  */
 function _persistLocalCache() {
   try {
     if (cacheData) {
       cacheData._lastModified = Date.now();
-      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(cacheData));
+      const lightData = {
+        ...cacheData,
+        products: (cacheData.products || []).map(({ images, ...rest }) => rest),
+        frecuentClients: (cacheData.frecuentClients || []).map(({ foto, ...rest }) => rest),
+        agregados: (cacheData.agregados || []).map(a => ({ ...a, photo: '' })),
+        ringExtras: (cacheData.ringExtras || []).map(a => ({ ...a, photo: '' })),
+        shalomImage: '',
+      };
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(lightData));
     }
   } catch {}
 }
@@ -686,6 +801,53 @@ export function reorderAgregados(fromIdx, toIdx) {
   sorted.splice(toIdx, 0, moved);
   sorted.forEach((a, i) => { a.order = i; });
   data.agregados = sorted;
+  saveStore(data);
+  return data;
+}
+
+/* ====== RING EXTRAS (opcionales adicionales para anillos) ====== */
+export function getRingExtras() {
+  const data = loadStore();
+  return (data.ringExtras || []).sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+}
+
+export function addRingExtra(ex) {
+  const data = loadStore();
+  if (!data.ringExtras) data.ringExtras = [];
+  const maxOrder = data.ringExtras.reduce((m, a) => Math.max(m, a.order ?? 0), -1);
+  ex.order = maxOrder + 1;
+  data.ringExtras.push(ex);
+  saveStore(data);
+  return data;
+}
+
+export function updateRingExtra(id, updates) {
+  const data = loadStore();
+  if (!data.ringExtras) data.ringExtras = [];
+  const idx = data.ringExtras.findIndex(a => a.id === id);
+  if (idx !== -1) {
+    data.ringExtras[idx] = { ...data.ringExtras[idx], ...updates };
+    saveStore(data);
+  }
+  return data;
+}
+
+export function deleteRingExtra(id) {
+  const data = loadStore();
+  if (!data.ringExtras) data.ringExtras = [];
+  data.ringExtras = data.ringExtras.filter(a => a.id !== id);
+  saveStore(data);
+  return data;
+}
+
+export function reorderRingExtras(fromIdx, toIdx) {
+  const data = loadStore();
+  if (!data.ringExtras) data.ringExtras = [];
+  const sorted = [...data.ringExtras].sort((a, b) => (a.order ?? 9999) - (b.order ?? 9999));
+  const [moved] = sorted.splice(fromIdx, 1);
+  sorted.splice(toIdx, 0, moved);
+  sorted.forEach((a, i) => { a.order = i; });
+  data.ringExtras = sorted;
   saveStore(data);
   return data;
 }

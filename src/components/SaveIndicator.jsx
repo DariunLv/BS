@@ -4,12 +4,13 @@
 // Estados:
 //   idle    → invisible
 //   saving  → "Guardando…" (color naranja, con spinner)
-//   saved   → "✓ Guardado" (color verde, se oculta en 2s)
+//   saved   → "Guardado" (color verde, se oculta en 2s)
 //   error   → "Reintentando…" (color amarillo, con contador de pendientes)
 //   offline → "Sin conexión - se guardará al volver" (gris)
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { IconCheck, IconAlertTriangle, IconCloudOff } from '@tabler/icons-react';
 import { subscribeSaveStatus, flushSaveQueue } from '../utils/saveQueue';
 
 export default function SaveIndicator({ visible = true }) {
@@ -31,19 +32,19 @@ export default function SaveIndicator({ visible = true }) {
     },
     saved: {
       bg: 'linear-gradient(135deg, #20c997, #12b886)',
-      icon: '✓',
+      icon: <IconCheck size={15} stroke={2.5} />,
       text: 'Guardado',
     },
     error: {
       bg: 'linear-gradient(135deg, #f59f00, #f08c00)',
-      icon: '⚠',
+      icon: <IconAlertTriangle size={15} stroke={2} />,
       text: state.pending > 0
         ? `Reintentando (${state.pending} pendiente${state.pending > 1 ? 's' : ''})`
         : 'Reintentando…',
     },
     offline: {
       bg: 'linear-gradient(135deg, #868e96, #495057)',
-      icon: '⏸',
+      icon: <IconCloudOff size={15} stroke={2} />,
       text: state.pending > 0
         ? `Sin conexión · ${state.pending} pendiente${state.pending > 1 ? 's' : ''}`
         : 'Sin conexión',
