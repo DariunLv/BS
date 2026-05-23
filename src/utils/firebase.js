@@ -95,7 +95,15 @@ async function withRetry(fn, attempts = 5, baseMs = 250) {
  *  - BORRA los documentos cuya id ya no está en items (antes NO lo hacía)
  *  - Usa batches con reset correcto cada 490 ops (antes CRASHEABA)
  */
-async function syncCollection(col, items, buildDoc) {
+async function syncCollection(col, items, buildDoc, opts = {}) {
+  // opts.allowDelete:
+  //   false (DEFAULT) → modo SOLO-AGREGAR/ACTUALIZAR. Nunca borra de Firebase.
+  //                     Para datos CRÍTICOS (ventas, gastos, pagos): el borrado
+  //                     real se hace con deleteDoc explícito desde el panel.
+  //   true            → permite borrar docs que ya no están en items (para
+  //                     imágenes/fotos donde sí queremos limpiar huérfanos).
+  const allowDelete = opts.allowDelete === true;
+
   // 1. Leer ids existentes para detectar los que hay que borrar
   let existingIds = new Set();
   try {
@@ -105,25 +113,39 @@ async function syncCollection(col, items, buildDoc) {
     console.warn('[syncCollection] lectura previa falló:', e?.message);
   }
 
-  // ─────────────────────────────────────────────────────────────────────
-  // BLINDAJE CRÍTICO (anti pérdida de datos):
-  // Si NO hay items que escribir (array vacío) pero SÍ hay documentos en
-  // Firebase, NO borramos nada y salimos. Esto evita que un caché local
-  // vacío (ej. tras borrar historial) destruya datos reales en Firebase.
-  // Firebase SIEMPRE es la fuente de verdad: jamás se vacía por accidente.
-  // ─────────────────────────────────────────────────────────────────────
   const validItems = items.filter(it => it && it.id);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // BLINDAJE 1 (anti pérdida total):
+  // Si NO hay items pero Firebase tiene docs, NO tocar nada. Jamás vaciar.
+  // ─────────────────────────────────────────────────────────────────────
   if (validItems.length === 0 && existingIds.size > 0) {
     console.warn(
-      `[syncCollection] ABORTADO en "${col.id}": ` +
-      `entrada vacía pero Firebase tiene ${existingIds.size} docs. ` +
-      `No se borra nada (protección anti-pérdida).`
+      `[syncCollection] ABORTADO en "${col.id}": entrada vacía pero ` +
+      `Firebase tiene ${existingIds.size} docs. No se borra nada.`
     );
     return;
   }
 
   const wantedIds = new Set(validItems.map(it => String(it.id)));
-  const toDelete  = [...existingIds].filter(id => !wantedIds.has(String(id)));
+  let toDelete = allowDelete
+    ? [...existingIds].filter(id => !wantedIds.has(String(id)))
+    : []; // modo solo-agregar: NUNCA borra
+
+  // ─────────────────────────────────────────────────────────────────────
+  // BLINDAJE 2 (anti borrado masivo):
+  // Aunque allowDelete sea true, si se intentaría borrar MÁS del 50% de los
+  // docs existentes, se aborta el borrado por seguridad (probable bug/caché
+  // corrupto). Se siguen guardando los items nuevos, pero no se borra nada.
+  // ─────────────────────────────────────────────────────────────────────
+  if (allowDelete && existingIds.size >= 4 && toDelete.length > existingIds.size * 0.5) {
+    console.warn(
+      `[syncCollection] BORRADO MASIVO BLOQUEADO en "${col.id}": ` +
+      `se intentaba borrar ${toDelete.length} de ${existingIds.size} docs. ` +
+      `Solo se guardan/actualizan, no se borra (protección anti-pérdida).`
+    );
+    toDelete = [];
+  }
 
   // 2. Procesar con batches que SÍ se resetean
   let batch  = writeBatch(db);
@@ -318,15 +340,17 @@ export async function saveMetaToFirebase(data) {
   await withRetry(() => setDoc(META_REF, metaToSave));
 
   // 2. Colecciones grandes en paralelo
+  // DATOS CRÍTICOS (ventas, gastos, pendientes, clientes): modo SOLO-AGREGAR.
+  // Nunca borran por sync. El borrado real se hace con deleteDoc explícito.
   await Promise.all([
     withRetry(() => syncCollection(CLI_PHOTOS_COL, frecuentClientsRaw, c => ({ foto: c.foto || '' }))),
     withRetry(() => syncCollection(SALES_COL,       salesRaw,       s => s)),
     withRetry(() => syncCollection(INVEST_COL,      investmentsRaw, i => i)),
     withRetry(() => syncCollection(PENDING_COL,     pendingSalesRaw, p => p)),
 
-    // Fotos de agregados y extras: cada una a su propio doc
-    withRetry(() => syncCollection(AG_IMG_COL, agregadosRaw,  ag => ({ photo: ag.photo || '' }))),
-    withRetry(() => syncCollection(EX_IMG_COL, ringExtrasRaw, ex => ({ photo: ex.photo || '' }))),
+    // Fotos de agregados y extras: SÍ pueden limpiar huérfanos (allowDelete)
+    withRetry(() => syncCollection(AG_IMG_COL, agregadosRaw,  ag => ({ photo: ag.photo || '' }), { allowDelete: true })),
+    withRetry(() => syncCollection(EX_IMG_COL, ringExtrasRaw, ex => ({ photo: ex.photo || '' }), { allowDelete: true })),
 
     // ringSizeGuide: solo si tiene contenido
     ringSizeGuideRaw && (ringSizeGuideRaw.videoUrl || ringSizeGuideRaw.photo || ringSizeGuideRaw.text)
@@ -457,4 +481,21 @@ export async function deleteProductFromFirebase(productId) {
     console.error('Error eliminando producto:', e);
     throw e;
   });
+}
+/* ============================================================
+   BORRADO EXPLÍCITO de items de cuentas en Firebase.
+   Estas se llaman cuando el usuario borra algo del panel.
+   El sync NUNCA borra cuentas; solo estas funciones lo hacen.
+   ============================================================ */
+export async function deleteSaleFromFirebase(id) {
+  if (!id) return;
+  await withRetry(() => deleteDoc(doc(db, 'sales', String(id))), 4);
+}
+export async function deleteInvestmentFromFirebase(id) {
+  if (!id) return;
+  await withRetry(() => deleteDoc(doc(db, 'investments', String(id))), 4);
+}
+export async function deletePendingSaleFromFirebase(id) {
+  if (!id) return;
+  await withRetry(() => deleteDoc(doc(db, 'pendingSales', String(id))), 4);
 }

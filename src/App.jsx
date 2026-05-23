@@ -88,9 +88,24 @@ export default function App() {
             }
           });
         } catch {}
+      } else {
+        // Firebase no devolvió datos (proyecto nuevo o sin meta).
+        // Limpiar _isLight para no bloquear guardados futuros.
+        import('./utils/store').then(({ clearLightFlag }) => {
+          if (clearLightFlag) clearLightFlag();
+        });
       }
       setIsLoading(false);
-    }).catch(() => setIsLoading(false));
+    }).catch(() => {
+      // Firebase FALLÓ al cargar (sin internet, error de red).
+      // Limpiar _isLight igual: si no, el usuario quedaría bloqueado sin
+      // poder guardar nada. Es preferible permitir guardar (los blindajes
+      // de syncCollection evitan que se borren datos de Firebase).
+      import('./utils/store').then(({ clearLightFlag }) => {
+        if (clearLightFlag) clearLightFlag();
+      });
+      setIsLoading(false);
+    });
   }, []);
 
   // Scroll arriba en cada cambio de ruta

@@ -204,6 +204,15 @@ export function buildLightCache(data) {
   };
 }
 
+/** Limpia la bandera _isLight para permitir guardados.
+ *  Se llama cuando Firebase terminó de cargar (o falló) y ya es seguro guardar. */
+export function clearLightFlag() {
+  if (cacheData && cacheData._isLight) {
+    delete cacheData._isLight;
+    console.log('[store] _isLight limpiado: guardados habilitados');
+  }
+}
+
 export function setCacheData(data) {
   if (!data.sales) data.sales = [];
   if (!data.investments) data.investments = [];
@@ -262,10 +271,13 @@ export function setCacheData(data) {
     }
   });
 
+  // Firebase ya cargó datos reales → limpiar la bandera _isLight para
+  // PERMITIR guardados de nuevo. Crítico: si no se limpia, los guardados
+  // quedarían bloqueados para siempre y se perderían cambios.
+  delete data._isLight;
+
   cacheData = data;
 }
-
-/* ====== CATEGORIAS ====== */
 export function getCategories(storeType = 'jewelry') {
   const data = loadStore();
   return data.categories.filter(c => c.storeType === storeType).sort((a, b) => a.order - b.order);
@@ -595,6 +607,10 @@ export function deleteInvestment(id) {
   if (!data.investments) data.investments = [];
   data.investments = data.investments.filter(i => i.id !== id);
   saveStore(data);
+  // Borrado explícito en Firebase (el sync ya no borra cuentas)
+  import('./firebase').then(({ deleteInvestmentFromFirebase }) => {
+    deleteInvestmentFromFirebase(id).catch(e => console.error('[deleteInvestment FB]', e));
+  });
   return data;
 }
 
@@ -661,6 +677,9 @@ export function deletePendingSale(id) {
   if (!data.pendingSales) data.pendingSales = [];
   data.pendingSales = data.pendingSales.filter(p => p.id !== id);
   saveStore(data);
+  import('./firebase').then(({ deletePendingSaleFromFirebase }) => {
+    deletePendingSaleFromFirebase(id).catch(e => console.error('[deletePendingSale FB]', e));
+  });
   return data;
 }
 
