@@ -105,7 +105,24 @@ async function syncCollection(col, items, buildDoc) {
     console.warn('[syncCollection] lectura previa falló:', e?.message);
   }
 
-  const wantedIds = new Set(items.filter(it => it && it.id).map(it => String(it.id)));
+  // ─────────────────────────────────────────────────────────────────────
+  // BLINDAJE CRÍTICO (anti pérdida de datos):
+  // Si NO hay items que escribir (array vacío) pero SÍ hay documentos en
+  // Firebase, NO borramos nada y salimos. Esto evita que un caché local
+  // vacío (ej. tras borrar historial) destruya datos reales en Firebase.
+  // Firebase SIEMPRE es la fuente de verdad: jamás se vacía por accidente.
+  // ─────────────────────────────────────────────────────────────────────
+  const validItems = items.filter(it => it && it.id);
+  if (validItems.length === 0 && existingIds.size > 0) {
+    console.warn(
+      `[syncCollection] ABORTADO en "${col.id}": ` +
+      `entrada vacía pero Firebase tiene ${existingIds.size} docs. ` +
+      `No se borra nada (protección anti-pérdida).`
+    );
+    return;
+  }
+
+  const wantedIds = new Set(validItems.map(it => String(it.id)));
   const toDelete  = [...existingIds].filter(id => !wantedIds.has(String(id)));
 
   // 2. Procesar con batches que SÍ se resetean
@@ -222,7 +239,7 @@ export async function loadFromFirebase() {
       ...x, photo: exPhotosMap[x.id] || x.photo || '',
     }));
 
-    return {
+    const finalData = {
       ...meta,
       ringSizeGuide: ringSizeGuide || undefined,
       ringBoxes: ringBoxes || meta.ringBoxes || undefined,
@@ -234,6 +251,32 @@ export async function loadFromFirebase() {
       pendingSales: pendingSales.length > 0 ? pendingSales : (meta.pendingSales || []),
       products: productsWithImages,
     };
+
+    // ─────────────────────────────────────────────────────────────────────
+    // BACKUP LOCAL DE SEGURIDAD: cada vez que Firebase trae ventas/inversiones,
+    // guardamos una copia ligera con fecha en una clave aparte. Sobrevive aunque
+    // se borre el caché normal. Sirve como red de seguridad de respaldo.
+    // ─────────────────────────────────────────────────────────────────────
+    try {
+      const fSales = finalData.sales || [];
+      const fInv   = finalData.investments || [];
+      const fPend  = finalData.pendingSales || [];
+      const fPagos = finalData.pagosAccionista || [];
+      if (fSales.length > 0 || fInv.length > 0 || fPend.length > 0 || fPagos.length > 0) {
+        const backup = {
+          fecha: new Date().toISOString(),
+          sales: fSales,
+          investments: fInv,
+          pendingSales: fPend,
+          pagosAccionista: fPagos,
+        };
+        localStorage.setItem('benito_backup_cuentas', JSON.stringify(backup));
+      }
+    } catch (e) {
+      console.warn('[backup local] no se pudo guardar:', e?.message);
+    }
+
+    return finalData;
   } catch (e) {
     console.error('Error leyendo Firebase:', e);
     return null;

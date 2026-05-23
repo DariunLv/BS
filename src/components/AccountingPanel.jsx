@@ -34,6 +34,11 @@ import {
 import { COLORS } from '../utils/theme';
 import StatsPanel from './StatsPanel';
 import { deductInventory, getProductInventory, getSizeStock, checkAndSyncSoldOut, registerSaleAtomic, deleteSaleAtomic } from '../utils/inventory';
+import {
+  autoBackup, exportBackupJSON, parseBackupFile, needsMonthlyExport,
+  listBackups, getBackup, getLocalBackup,
+} from '../utils/backup';
+import { exportCuentasPDF } from '../utils/exportPDF';
 
 const SOCIOS_OPTIONS = [
   { value: 'Yefer', label: 'Yefer' },
@@ -168,6 +173,31 @@ export default function AccountingPanel({ storeData, onRefresh }) {
 
   useEffect(() => { requestNotificationPermission(); }, []);
 
+  // Estados del sistema de respaldo
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
+  const [availableBackups, setAvailableBackups] = useState([]);
+  const [showMonthlyReminder, setShowMonthlyReminder] = useState(false);
+  const importInputRef = useRef(null);
+
+  // Auto-backup: cada vez que cambian las ventas/gastos, respaldar (con throttle)
+  useEffect(() => {
+    const data = loadStore();
+    const hayDatos = (data.sales?.length || 0) > 0 || (data.investments?.length || 0) > 0
+      || (data.pendingSales?.length || 0) > 0 || (data.pagosAccionista?.length || 0) > 0;
+    if (hayDatos) {
+      const t = setTimeout(() => { autoBackup(data); }, 3000);
+      return () => clearTimeout(t);
+    }
+  }, [sales, investments, pendingSales, pagosAccionista]);
+
+  // Recordatorio mensual de exportar
+  useEffect(() => {
+    const hayDatos = (sales?.length || 0) > 0 || (investments?.length || 0) > 0;
+    if (hayDatos && needsMonthlyExport()) {
+      setShowMonthlyReminder(true);
+    }
+  }, [sales, investments]);
+
   useEffect(() => {
     const active = pendingSales.filter(p => !p.completed);
     const dueToday = active.filter(p => getDaysUntil(p.fechaEntrega) === 0);
@@ -246,6 +276,7 @@ export default function AccountingPanel({ storeData, onRefresh }) {
     return found ? found.label : filterMonth;
   }, [filterMonth, availableMonths]);
 
+  // Exportar resumen como imagen PNG (lo que ya existía)
   const handleExportSummary = async () => {
     if (!summaryRef.current) return;
     try {
@@ -259,6 +290,116 @@ export default function AccountingPanel({ storeData, onRefresh }) {
       link.click();
     } catch (e) {
       console.error('Export error:', e);
+    }
+  };
+
+  // Exportar PDF detallado de cuentas
+  const handleExportPDF = () => {
+    const ok = exportCuentasPDF({
+      periodo: currentMonthLabel,
+      sales: filteredSales.map(s => ({
+        fecha: s.fecha, producto: s.producto || s.productTitle,
+        cliente: s.cliente, precioVenta: s.precio,
+      })),
+      investments: filteredInvestments.map(i => ({
+        fecha: i.fecha, concepto: i.categoria || i.concepto || i.descripcion,
+        fuenteDinero: i.fuenteDinero, monto: i.monto,
+      })),
+      pendingSales: pendingSales.filter(p => !p.completed).map(p => ({
+        fechaEntrega: p.fechaEntrega, producto: p.producto,
+        cliente: p.cliente, precioVenta: p.precio,
+      })),
+      totals: { ventas: totalVentas, gastos: totalGastosOperativos + totalCostosVentas, ganancia },
+    });
+    if (ok) {
+      try { localStorage.setItem('benito_last_export_month', new Date().toISOString().slice(0, 7)); } catch {}
+      setShowMonthlyReminder(false);
+    }
+  };
+
+  // Exportar respaldo JSON (copia física descargable)
+  const handleExportBackup = () => {
+    exportBackupJSON(loadStore());
+    setShowMonthlyReminder(false);
+    notifications.show({
+      title: 'Respaldo descargado',
+      message: 'Guarda este archivo en un lugar seguro. Te permite restaurar todo si algo falla.',
+      color: 'green', autoClose: 5000,
+    });
+  };
+
+  // Importar respaldo JSON
+  const handleImportBackup = async (file) => {
+    if (!file) return;
+    try {
+      const cuentas = await parseBackupFile(file);
+      const totalItems = (cuentas.sales?.length || 0) + (cuentas.investments?.length || 0)
+        + (cuentas.pendingSales?.length || 0) + (cuentas.pagosAccionista?.length || 0);
+      if (totalItems === 0) {
+        notifications.show({ title: 'Respaldo vacío', message: 'El archivo no tiene datos para restaurar.', color: 'orange' });
+        return;
+      }
+      if (!window.confirm(
+        `¿Restaurar este respaldo?\n\n` +
+        `Ventas: ${cuentas.sales.length}\nGastos: ${cuentas.investments.length}\n` +
+        `Pendientes: ${cuentas.pendingSales.length}\nPagos: ${cuentas.pagosAccionista.length}\n\n` +
+        `Esto REEMPLAZARÁ tus cuentas actuales por las del archivo.`
+      )) return;
+
+      const data = loadStore();
+      data.sales = cuentas.sales;
+      data.investments = cuentas.investments;
+      data.pendingSales = cuentas.pendingSales;
+      data.pagosAccionista = cuentas.pagosAccionista;
+      if (cuentas.shareholders?.length) data.shareholders = cuentas.shareholders;
+      if (cuentas.frecuentClients?.length) data.frecuentClients = cuentas.frecuentClients;
+
+      // Importar usando saveToFirebase (escribe todo a Firebase de nuevo)
+      const { saveToFirebase } = await import('../utils/firebase');
+      const { saveStore } = await import('../utils/store');
+      saveStore(data);
+      await saveToFirebase(data);
+
+      notifications.show({
+        title: 'Respaldo restaurado',
+        message: `Se restauraron ${totalItems} registros. Recargando...`,
+        color: 'green', autoClose: 3000,
+      });
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      notifications.show({ title: 'Error al importar', message: e.message, color: 'red', autoClose: 6000 });
+    }
+  };
+
+  // Abrir modal de backups de Firebase
+  const handleOpenBackups = async () => {
+    setBackupModalOpen(true);
+    const list = await listBackups();
+    setAvailableBackups(list);
+  };
+
+  // Restaurar desde un backup de Firebase
+  const handleRestoreFromFirebase = async (backupId) => {
+    if (!window.confirm('¿Restaurar las cuentas a este punto? Reemplazará las cuentas actuales.')) return;
+    try {
+      const backup = await getBackup(backupId);
+      if (!backup) { notifications.show({ title: 'No encontrado', message: 'El backup no existe.', color: 'red' }); return; }
+      const data = loadStore();
+      data.sales = backup.sales || [];
+      data.investments = backup.investments || [];
+      data.pendingSales = backup.pendingSales || [];
+      data.pagosAccionista = backup.pagosAccionista || [];
+      if (backup.shareholders?.length) data.shareholders = backup.shareholders;
+
+      const { saveToFirebase } = await import('../utils/firebase');
+      const { saveStore } = await import('../utils/store');
+      saveStore(data);
+      await saveToFirebase(data);
+
+      notifications.show({ title: 'Restaurado', message: 'Recargando...', color: 'green', autoClose: 2500 });
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      notifications.show({ title: 'Error', message: e.message, color: 'red' });
     }
   };
 
@@ -336,16 +477,96 @@ export default function AccountingPanel({ storeData, onRefresh }) {
           border={ganancia >= 0 ? '#b8d4e6' : '#e6c8b8'} />
       </div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button onClick={handleExportSummary}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
-            background: COLORS.offWhite, border: `1px solid ${COLORS.borderLight}`,
-            borderRadius: 20, cursor: 'pointer', fontFamily: '"Outfit", sans-serif',
-            fontSize: '0.65rem', color: COLORS.navy, fontWeight: 500 }}>
-          <IconDownload size={12} color={COLORS.navy} />
-          Exportar resumen
+      {/* RECORDATORIO MENSUAL DE RESPALDO */}
+      {showMonthlyReminder && (
+        <Alert icon={<IconShield size={18} />} color="orange" variant="light" radius="md" mb={8}
+          withCloseButton onClose={() => setShowMonthlyReminder(false)}
+          title="Respalda tus cuentas este mes"
+          styles={{ title: { fontFamily: '"Outfit", sans-serif', fontWeight: 600 } }}>
+          <div style={{ fontFamily: '"Outfit", sans-serif', fontSize: '0.75rem' }}>
+            Aún no has descargado tu respaldo este mes. Hazlo para tener una copia segura en tu dispositivo.
+            <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button onClick={handleExportBackup}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px',
+                  background: COLORS.orange, border: 'none', borderRadius: 20, cursor: 'pointer',
+                  fontFamily: '"Outfit", sans-serif', fontSize: '0.7rem', color: '#fff', fontWeight: 700 }}>
+                <IconDownload size={13} /> Descargar respaldo ahora
+              </button>
+              <button onClick={handleExportPDF}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px',
+                  background: '#fff', border: `1.5px solid ${COLORS.orange}`, borderRadius: 20, cursor: 'pointer',
+                  fontFamily: '"Outfit", sans-serif', fontSize: '0.7rem', color: COLORS.orange, fontWeight: 700 }}>
+                <IconFileInvoice size={13} /> Descargar PDF
+              </button>
+            </div>
+          </div>
+        </Alert>
+      )}
+
+      {/* BARRA DE RESPALDO Y EXPORTACIÓN */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+        <input ref={importInputRef} type="file" accept="application/json,.json"
+          style={{ display: 'none' }}
+          onChange={(e) => { handleImportBackup(e.target.files?.[0]); e.target.value = ''; }} />
+
+        <button onClick={handleExportPDF} title="PDF detallado de cuentas"
+          style={btnBarStyle(COLORS)}>
+          <IconFileInvoice size={12} color={COLORS.navy} /> PDF
+        </button>
+        <button onClick={handleExportSummary} title="Imagen del resumen"
+          style={btnBarStyle(COLORS)}>
+          <IconDownload size={12} color={COLORS.navy} /> Imagen
+        </button>
+        <button onClick={handleExportBackup} title="Descargar respaldo (.json) para guardar en tu PC"
+          style={{ ...btnBarStyle(COLORS), background: '#e6f9e6', borderColor: '#b8e6b8', color: '#2d8a2d' }}>
+          <IconShield size={12} color="#2d8a2d" /> Respaldo
+        </button>
+        <button onClick={() => importInputRef.current?.click()} title="Restaurar desde un archivo .json"
+          style={btnBarStyle(COLORS)}>
+          <IconArrowUpRight size={12} color={COLORS.navy} /> Importar
+        </button>
+        <button onClick={handleOpenBackups} title="Ver copias automáticas en la nube"
+          style={btnBarStyle(COLORS)}>
+          <IconClock size={12} color={COLORS.navy} /> Copias nube
         </button>
       </div>
+
+      {/* MODAL DE BACKUPS EN LA NUBE */}
+      <Modal opened={backupModalOpen} onClose={() => setBackupModalOpen(false)}
+        title="Copias de seguridad automáticas" radius="md" centered
+        styles={{ title: { fontFamily: '"Playfair Display", serif', fontWeight: 600 } }}>
+        <Text size="xs" c="dimmed" mb="sm" style={{ fontFamily: '"Outfit", sans-serif' }}>
+          El sistema guarda automáticamente una copia diaria de tus cuentas en la nube.
+          Puedes restaurar a cualquiera de estos puntos.
+        </Text>
+        {availableBackups.length === 0 ? (
+          <Text size="sm" c="dimmed" ta="center" py="lg" style={{ fontFamily: '"Outfit", sans-serif' }}>
+            Aún no hay copias guardadas. Se crearán automáticamente al registrar ventas.
+          </Text>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 360, overflowY: 'auto' }}>
+            {availableBackups.map(b => (
+              <div key={b.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '8px 12px', background: COLORS.offWhite, borderRadius: 8,
+                border: `1px solid ${COLORS.borderLight}`,
+              }}>
+                <div>
+                  <Text size="xs" fw={600} style={{ fontFamily: '"Outfit", sans-serif' }}>{b.fecha}</Text>
+                  <Text size="xs" c="dimmed" style={{ fontFamily: '"Outfit", sans-serif' }}>
+                    {b.resumen.ventas || 0} ventas · {b.resumen.gastos || 0} gastos · {b.resumen.pendientes || 0} pend.
+                  </Text>
+                </div>
+                <Button size="xs" variant="light" color="orange" radius="xl"
+                  onClick={() => handleRestoreFromFirebase(b.id)}
+                  style={{ fontFamily: '"Outfit", sans-serif' }}>
+                  Restaurar
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
 
       {/* Fondo accionista */}
       {totalAccionistas > 0 && (
@@ -2229,4 +2450,13 @@ function PendingSaleFormModal({ open, pending, categories, products, onClose, on
       </div>
     </Modal>
   );
+}
+// Estilo de los botones de la barra de respaldo
+function btnBarStyle(COLORS) {
+  return {
+    display: 'flex', alignItems: 'center', gap: 4, padding: '5px 11px',
+    background: COLORS.offWhite, border: `1px solid ${COLORS.borderLight}`,
+    borderRadius: 20, cursor: 'pointer', fontFamily: '"Outfit", sans-serif',
+    fontSize: '0.65rem', color: COLORS.navy, fontWeight: 600,
+  };
 }
